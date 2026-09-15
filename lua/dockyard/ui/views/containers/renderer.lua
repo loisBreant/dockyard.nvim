@@ -41,6 +41,42 @@ local function container_row(c)
 	}
 end
 
+local function matches_filter(c, needle)
+	if not needle or needle == "" then
+		return true
+	end
+	needle = needle:lower()
+	local fields = {
+		c.name,
+		c.status,
+		c.status_message,
+		c.image,
+		c.ports,
+		c.compose_project,
+		c.compose_service,
+	}
+	for _, v in ipairs(fields) do
+		if type(v) == "string" and v:lower():find(needle, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+local function filter_items(items)
+	local filter = view_state.filter
+	if not filter or filter == "" then
+		return items
+	end
+	local out = {}
+	for _, c in ipairs(items) do
+		if matches_filter(c, filter) then
+			table.insert(out, c)
+		end
+	end
+	return out
+end
+
 local function build_flat_rows(items)
 	local rows = {}
 	for _, c in ipairs(items) do
@@ -308,7 +344,8 @@ function M.render()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local items = state.containers.get_items()
+	local raw_items = state.containers.get_items() or {}
+	local items = filter_items(raw_items)
 
 	ui_utils.append_block(lines, spans, header.render(ui_state.mode, width))
 
@@ -323,6 +360,26 @@ function M.render()
 		})
 	)
 	table.insert(lines, "")
+
+	-- Filter indicator (when active)
+	if view_state.filter and view_state.filter ~= "" then
+		local total = #raw_items
+		local shown = #items
+		local clear_key = require("dockyard.core.keymaps").key("containers.clear_filter") or "C"
+		-- Handle case where key is table (multiple mappings)
+		if type(clear_key) == "table" then
+			clear_key = clear_key[1] or "C"
+		end
+		local filter_line = string.format(" Filter: %s  (%d/%d)  [press %s to clear]", view_state.filter, shown, total, clear_key)
+		table.insert(lines, filter_line)
+		table.insert(spans, {
+			line = #lines - 1,
+			start_col = 0,
+			end_col = #filter_line,
+			hl_group = "DockyardMuted",
+		})
+		table.insert(lines, "")
+	end
 
 	local ok, body_lines, body_line_map, body_spans = pcall(build_body, width, items)
 	if not ok then

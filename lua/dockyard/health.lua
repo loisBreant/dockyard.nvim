@@ -19,7 +19,14 @@ function M.check()
 	if has_toggleterm then
 		vim.health.ok("toggleterm.nvim found")
 	else
-		vim.health.warn("toggleterm.nvim not found")
+		vim.health.ok("toggleterm.nvim not found — using native terminal fallback for T")
+	end
+
+	local has_baleia, _ = pcall(require, "baleia")
+	if has_baleia then
+		vim.health.ok("baleia.nvim found — ANSI colors in logs enabled")
+	else
+		vim.health.ok("baleia.nvim not found — logs will show raw ANSI codes (install m00qek/baleia.nvim for colors)")
 	end
 
 	--- Docker

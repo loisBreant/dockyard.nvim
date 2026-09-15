@@ -1,4 +1,17 @@
 local icons = require("dockyard.ui.icons")
+local resolver = require("dockyard.core.keymaps")
+
+local function display_key(action_id, fallback)
+	local k = resolver.key(action_id)
+	if k == nil then
+		return fallback
+	end
+	if type(k) == "table" then
+		-- Show first mapping, join multiples with "/"
+		return table.concat(k, "/")
+	end
+	return tostring(k)
+end
 
 local M = {}
 
@@ -33,14 +46,15 @@ function M.render(container_name, opts)
 	end
 
 	table.insert(parts, "%=")
-	table.insert(parts, "%#DockyardTabInactive# 󰌑 Details %#Normal#")
-	table.insert(parts, string.format("%%#%s# r Raw %%#Normal#", raw_hl))
-	table.insert(parts, string.format("%%#%s# f Follow %%#Normal#", follow_hl))
-	table.insert(parts, string.format("%%#%s# / Filter %%#Normal#", filter_hl))
-	table.insert(parts, "%#DockyardTabInactive# q Close %#Normal#")
+	local details_key = display_key("loglens.open_detail", "K")
+	table.insert(parts, string.format("%%#DockyardTabInactive# %s Details %%#Normal#", details_key))
+	table.insert(parts, string.format("%%#%s# %s Raw %%#Normal#", raw_hl, display_key("loglens.toggle_raw", "r")))
+	table.insert(parts, string.format("%%#%s# %s Follow %%#Normal#", follow_hl, display_key("loglens.toggle_follow", "f")))
+	table.insert(parts, string.format("%%#%s# %s Filter %%#Normal#", filter_hl, display_key("loglens.filter", "/")))
+	table.insert(parts, string.format("%%#DockyardTabInactive# %s Close %%#Normal#", display_key("loglens.close", "q")))
 
 	if filter_active then
-		table.insert(parts, "%#DockyardTabActive# c Clear (" .. tostring(opts.filter) .. ") %#Normal#")
+		table.insert(parts, string.format("%%#DockyardTabActive# %s Clear (" .. tostring(opts.filter) .. ") %%#Normal#", display_key("loglens.clear_filter", "c")))
 	end
 
 	return table.concat(parts, " ")

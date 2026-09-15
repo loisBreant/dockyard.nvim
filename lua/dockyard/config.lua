@@ -47,8 +47,17 @@
 
 --- @alias DockyardView "containers"|"compose"|"images"|"networks"|"volumes"
 
+--- @alias DockyardOpenStrategy "current"|"split"|"vsplit"|"tab"|"float"
+--- How :Dockyard opens when no explicit arg/modifier is given.
+---  "current" = replace current window (like :edit)
+---  "split"   = horizontal split (like :split)
+---  "vsplit"  = vertical split (like :vsplit / :vertical split)
+---  "tab"     = new tabpage (like :tabnew) — default, preserves old behavior
+---  "float"   = centered floating window (like :DockyardFloat)
+
 --- @class DisplayConfig
 --- @field views? DockyardView[] Ordered list of views shown in the navbar
+--- @field open_strategy? DockyardOpenStrategy Default open strategy for :Dockyard
 
 --- @class DockyardConfig
 --- @field display? DisplayConfig Display settings
@@ -61,6 +70,7 @@ local M = {}
 M.options = {
 	display = {
 		views = { "containers", "images", "networks", "volumes" },
+		open_strategy = "tab",
 	},
 	loglens = {
 		containers = {},
@@ -84,6 +94,8 @@ M.options = {
 			open_terminal = "T",
 			open_logs = "L",
 			open_files = "f",
+			filter = "F",
+			clear_filter = "C",
 		},
 		images = {
 			remove = "d",
@@ -109,6 +121,76 @@ M.options = {
 	},
 }
 
+local _dockyard_strategies = { "current", "edit", "split", "vsplit", "tab", "float" }
+
+local function normalize_strategy(val)
+	if not val or val == "" then
+		return nil
+	end
+	val = vim.trim(tostring(val)):lower()
+	if val == "edit" or val == "current" or val == "buffer" or val == "enew" then
+		return "current"
+	end
+	if val == "split" or val == "horizontal" or val == "hsplit" or val == "h_split" then
+		return "split"
+	end
+	if val == "vsplit" or val == "vertical" or val == "v_split" then
+		return "vsplit"
+	end
+	if val == "tab" or val == "tabnew" or val == "tabe" then
+		return "tab"
+	end
+	if val == "float" or val == "panel" or val == "floating" then
+		return "float"
+	end
+	return val
+end
+
+-- Resolve final strategy honoring Vim's command modifiers (:vertical, :tab, :horizontal, :botright, etc.)
+-- This mirrors oil.nvim's mods support and the standard Vim convention where
+-- :vertical Dockyard => vsplit, :tab Dockyard => tab, :horizontal Dockyard => split.
+local function resolve_strategy(arg, mods)
+	local from_arg = normalize_strategy(arg)
+	if from_arg and vim.tbl_contains(_dockyard_strategies, from_arg) then
+		return from_arg
+	end
+	if from_arg ~= nil then
+		vim.notify("Dockyard: unknown strategy '" .. tostring(arg) .. "' — falling back to default", vim.log.levels.WARN)
+	end
+	if mods and mods ~= "" then
+		local m = mods:lower()
+		if m:find("tab") then
+			return "tab"
+		end
+		if m:find("vertical") then
+			return "vsplit"
+		end
+		if m:find("horizontal") then
+			return "split"
+		end
+		-- :botright / :leftabove / :aboveleft / :belowright / :topleft imply a split
+		if m:find("botright") or m:find("leftabove") or m:find("aboveleft") or m:find("belowright") or m:find("topleft") then
+			return "split"
+		end
+	end
+	return M.options.display.open_strategy or "tab"
+end
+
+local function dockyard_complete(arg_lead, _cmd_line, _cursor_pos)
+	local strategies = { "current", "edit", "split", "vsplit", "tab", "float" }
+	if not arg_lead or arg_lead == "" then
+		return strategies
+	end
+	local out = {}
+	local lead = arg_lead:lower()
+	for _, s in ipairs(strategies) do
+		if vim.startswith(s, lead) then
+			table.insert(out, s)
+		end
+	end
+	return out
+end
+
 local function create_commands()
 	pcall(vim.api.nvim_del_user_command, "Dockyard")
 	pcall(vim.api.nvim_del_user_command, "DockyardFloat")
@@ -118,13 +200,23 @@ local function create_commands()
 	pcall(vim.api.nvim_del_user_command, "DockyardFiles")
 	pcall(vim.api.nvim_del_user_command, "DockyardLogs")
 
-	vim.api.nvim_create_user_command("Dockyard", function()
-		require("dockyard.ui").open_full()
-	end, { desc = "Open Dockyard UI" })
+	vim.api.nvim_create_user_command("Dockyard", function(opts)
+		local strategy = resolve_strategy(opts.args, opts.mods)
+		require("dockyard.ui").open_with_strategy(strategy, opts.mods)
+	end, {
+		desc = "Open Dockyard UI (args: current|split|vsplit|tab|float; also honors :vertical/:tab/:horizontal modifiers)",
+		nargs = "?",
+		complete = dockyard_complete,
+	})
 
+	-- Kept for backwards compatibility — delegate to unified strategy.
 	vim.api.nvim_create_user_command("DockyardFloat", function()
-		require("dockyard.ui").open()
-	end, { desc = "Open Dockyard Floating UI" })
+		require("dockyard.ui").open_with_strategy("float", nil)
+	end, { desc = "Open Dockyard Floating UI (deprecated: use :Dockyard float)" })
+
+	vim.api.nvim_create_user_command("DockyardFull", function()
+		require("dockyard.ui").open_with_strategy("tab", nil)
+	end, { desc = "Open Dockyard fullscreen UI (deprecated: use :Dockyard tab)" })
 
 	vim.api.nvim_create_user_command("DockyardBuild", function()
 		require("dockyard.commands").build()

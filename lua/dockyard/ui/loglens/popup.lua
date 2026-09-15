@@ -1,4 +1,5 @@
 local popup_factory = require("dockyard.ui.popups.popup")
+local baleia = require("dockyard.ui.loglens.baleia")
 
 local M = {}
 
@@ -57,6 +58,11 @@ function M.render_current()
 	})
 
 	popup.set_content(content.lines, content.spans)
+	-- Colorize ANSI escapes in the detail popup as well
+	local buf = popup.get_buf and popup.get_buf() or nil
+	if buf then
+		baleia.colorize(buf)
+	end
 end
 
 ---@param entry LogLensEntry

@@ -10,7 +10,7 @@ local INDEX = 10
 ---@param buf number
 ---@param handlers { close: fun(), refresh: fun(), next_view: fun(), prev_view: fun(), open_help?: fun() }
 function M.register_global(buf, handlers)
-	local items = {
+		local items = {
 		{
 			key = "j",
 			desc = "Move down",
@@ -21,6 +21,18 @@ function M.register_global(buf, handlers)
 			key = "k",
 			desc = "Move up",
 			callback = navigation.up,
+			hidden = true,
+		},
+		{
+			key = "gg",
+			desc = "Go to first row",
+			callback = navigation.first,
+			hidden = true,
+		},
+		{
+			key = "G",
+			desc = "Go to last row",
+			callback = navigation.last,
 			hidden = true,
 		},
 	}
@@ -87,6 +99,8 @@ function M.unregister_global(buf)
 	local items = {
 		{ key = "j" },
 		{ key = "k" },
+		{ key = "gg" },
+		{ key = "G" },
 	}
 	resolver.push(items, resolver.removal("ui.close"))
 	resolver.push(items, resolver.removal("ui.refresh"))

@@ -54,7 +54,7 @@ local function setup_active_view()
 	end
 end
 
-local function open_with(mode, win_config_fn)
+local function open_with(mode, win_config_fn, mods)
 	local views = config.options.display.views or { "containers", "images", "networks", "volumes" }
 	if #views > 0 and not vim.tbl_contains(views, state.current_view) then
 		state.current_view = views[1]
@@ -68,7 +68,14 @@ local function open_with(mode, win_config_fn)
 		state.buf_id = ui_utils.create_buf()
 	end
 
-	if mode == "full" then
+	-- normalize mods prefix for split/vsplit
+	local mods_prefix = ""
+	if mods and mods ~= "" then
+		mods_prefix = vim.trim(mods)
+	end
+
+	if mode == "full" or mode == "tab" then
+		-- Honor :tab modifier: always open a new tab.
 		vim.cmd("tabnew")
 		state.tab_id = vim.api.nvim_get_current_tabpage()
 		state.win_id = vim.api.nvim_get_current_win()
@@ -77,9 +84,50 @@ local function open_with(mode, win_config_fn)
 		if tab_buf ~= state.buf_id and vim.api.nvim_buf_is_valid(tab_buf) then
 			pcall(vim.api.nvim_buf_delete, tab_buf, { force = true })
 		end
+		state.prev_buf = nil
+	elseif mode == "current" then
+		state.prev_buf = vim.api.nvim_get_current_buf()
+		state.win_id = vim.api.nvim_get_current_win()
+		state.tab_id = nil
+		vim.api.nvim_win_set_buf(state.win_id, state.buf_id)
+	elseif mode == "split" or mode == "vsplit" then
+		-- Use :new / :vnew (split with new empty buffer) to avoid reusing the
+		-- current buffer in both windows; :split reuses the same buffer which
+		-- would be deleted and take the original window with it.
+		local cmd = mode == "split" and "new" or "vnew"
+		if mods_prefix ~= "" then
+			-- Strip redundant vertical/horizontal that duplicate the cmd
+			local m = mods_prefix
+			if mode == "split" then
+				m = m:gsub("vertical", ""):gsub("horizontal", "")
+			else
+				m = m:gsub("horizontal", "")
+			end
+			m = vim.trim(m:gsub("%s+", " "))
+			if m ~= "" then
+				local ok = pcall(vim.cmd, m .. " " .. cmd)
+				if not ok then
+					vim.cmd(cmd)
+				end
+			else
+				vim.cmd(cmd)
+			end
+		else
+			vim.cmd(cmd)
+		end
+		state.win_id = vim.api.nvim_get_current_win()
+		state.tab_id = nil
+		state.prev_buf = nil
+		local new_buf = vim.api.nvim_get_current_buf()
+		vim.api.nvim_win_set_buf(state.win_id, state.buf_id)
+		if new_buf ~= state.buf_id and vim.api.nvim_buf_is_valid(new_buf) then
+			pcall(vim.api.nvim_buf_delete, new_buf, { force = true })
+		end
 	else
+		-- panel / float — floating window via nvim_open_win
 		state.win_id = vim.api.nvim_open_win(state.buf_id, true, win_config_fn())
 		state.tab_id = nil
+		state.prev_buf = nil
 	end
 	ui_utils.apply_win_config(state.win_id, mode)
 	statusline.attach(state.win_id)
@@ -142,7 +190,13 @@ M.resize = function()
 		return
 	end
 
-	if state.mode == "full" then
+	if state.mode == "full" or state.mode == "tab" then
+		update_active_view(nil)
+		return
+	end
+
+	-- Only floating/panel modes support nvim_win_set_config resize
+	if state.mode ~= "panel" and state.mode ~= "float" then
 		update_active_view(nil)
 		return
 	end
@@ -182,13 +236,106 @@ M.open_full = function()
 	return win_id
 end
 
+-- Additional open strategies — honor Vim's window modifiers convention
+-- e.g. :vertical Dockyard, :tab Dockyard, :split | Dockyard
+
+M.open_current = function(mods)
+	if M.is_open() then
+		vim.api.nvim_set_current_win(state.win_id)
+		update_active_view(nil)
+		return state.win_id
+	end
+	local win_id = open_with("current", ui_utils.panel_win_config, mods)
+	setup_active_view()
+	update_active_view(nil, { force_update = true })
+	return win_id
+end
+
+M.open_split = function(mods)
+	if M.is_open() then
+		vim.api.nvim_set_current_win(state.win_id)
+		update_active_view(nil)
+		return state.win_id
+	end
+	local win_id = open_with("split", ui_utils.panel_win_config, mods)
+	setup_active_view()
+	update_active_view(nil, { force_update = true })
+	return win_id
+end
+
+M.open_vsplit = function(mods)
+	if M.is_open() then
+		vim.api.nvim_set_current_win(state.win_id)
+		update_active_view(nil)
+		return state.win_id
+	end
+	local win_id = open_with("vsplit", ui_utils.panel_win_config, mods)
+	setup_active_view()
+	update_active_view(nil, { force_update = true })
+	return win_id
+end
+
+M.open_tab = function(mods)
+	if M.is_open() then
+		vim.api.nvim_set_current_win(state.win_id)
+		update_active_view(nil)
+		return state.win_id
+	end
+	local win_id = open_with("tab", ui_utils.full_win_config, mods)
+	setup_active_view()
+	update_active_view(nil, { force_update = true })
+	return win_id
+end
+
+M.open_float = M.open
+
+--- Unified entry point for :Dockyard [strategy]. Mirrors oil.nvim / neo-tree
+--- convention while also honoring Vim's command modifiers (:vertical, :tab, etc.)
+--- @param strategy DockyardOpenStrategy|nil Explicit arg or nil to use config.mods
+--- @param mods string|nil Vim command modifiers (opts.mods)
+M.open_with_strategy = function(strategy, mods)
+	local s = strategy or config.options.display.open_strategy or "tab"
+	-- Normalize
+	s = tostring(s):lower()
+	if s == "panel" or s == "floating" then
+		s = "float"
+	end
+	if s == "edit" or s == "buffer" or s == "current" then
+		s = "current"
+	end
+	if s == "horizontal" or s == "h_split" or s == "hsplit" then
+		s = "split"
+	end
+	if s == "vertical" or s == "v_split" then
+		s = "vsplit"
+	end
+	if s == "tabnew" or s == "tabe" then
+		s = "tab"
+	end
+
+	if s == "float" then
+		return M.open_float()
+	elseif s == "current" then
+		return M.open_current(mods)
+	elseif s == "split" then
+		return M.open_split(mods)
+	elseif s == "vsplit" then
+		return M.open_vsplit(mods)
+	elseif s == "tab" or s == "full" then
+		return M.open_tab(mods)
+	else
+		vim.notify("Dockyard: unknown open strategy '" .. s .. "'", vim.log.levels.WARN)
+		return M.open_tab(mods)
+	end
+end
+
 M.close = function()
 	if not M.is_open() then
 		statusline.reset()
 		return
 	end
 
-	if state.mode == "full" then
+	if state.mode == "full" or state.mode == "tab" then
 		if state.tab_id ~= nil and vim.api.nvim_tabpage_is_valid(state.tab_id) then
 			local current_tab = vim.api.nvim_get_current_tabpage()
 			if current_tab ~= state.tab_id then
@@ -196,17 +343,48 @@ M.close = function()
 			end
 			vim.cmd("tabclose")
 		end
+		state.win_id = nil
+	elseif state.mode == "current" then
+		-- Replace Dockyard buffer with previous buffer; keep window alive.
+		if state.prev_buf ~= nil and vim.api.nvim_buf_is_valid(state.prev_buf) then
+			if vim.api.nvim_win_is_valid(state.win_id) then
+				vim.api.nvim_win_set_buf(state.win_id, state.prev_buf)
+			end
+		else
+			-- No valid previous buffer — try alternate buffer, else create listed empty buffer.
+			if vim.api.nvim_win_is_valid(state.win_id) then
+				local alt = vim.fn.bufnr("#")
+				if alt ~= -1 and vim.api.nvim_buf_is_valid(alt) then
+					vim.api.nvim_win_set_buf(state.win_id, alt)
+				else
+					local empty = vim.api.nvim_create_buf(true, false)
+					vim.api.nvim_win_set_buf(state.win_id, empty)
+				end
+			end
+		end
+		state.win_id = nil
+		state.prev_buf = nil
 	else
+		-- panel/float/split/vsplit — close the window
 		vim.api.nvim_win_close(state.win_id, true)
+		state.win_id = nil
 	end
 	state.win_id = nil
 	statusline.reset()
 
-	if state.prev_win ~= nil and vim.api.nvim_win_is_valid(state.prev_win) then
-		vim.api.nvim_set_current_win(state.prev_win)
+	if state.mode ~= "current" then
+		if state.prev_win ~= nil and vim.api.nvim_win_is_valid(state.prev_win) then
+			-- For split/vsplit the prev_win is the window we split from; focus back
+			-- only if current window was the Dockyard window.
+			local cur = vim.api.nvim_get_current_win()
+			if cur ~= state.prev_win then
+				pcall(vim.api.nvim_set_current_win, state.prev_win)
+			end
+		end
 	end
 
 	state.prev_win = nil
+	state.prev_buf = nil
 	state.tab_id = nil
 	teardown_active_view()
 	if state.buf_id ~= nil then

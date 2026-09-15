@@ -160,7 +160,7 @@ end
 ---@param rows table[]
 ---@param available_width number content area width (excluding left margin)
 ---@param gap_after fun(index:number):number
-local function compute_widths(columns, rows, available_width, gap_after, tree, fill)
+local function compute_widths(columns, rows, available_width, gap_after, tree, fill, truncate)
 	local widths = {}
 	for i, c in ipairs(columns) do
 		widths[i] = natural_width(c, rows, i, tree)
@@ -176,6 +176,17 @@ local function compute_widths(columns, rows, available_width, gap_after, tree, f
 			sum = sum + gap_after(i)
 		end
 		return sum
+	end
+
+	-- When truncate == false the table is allowed to overflow the window
+	-- width (no ".." truncation). The user can then scroll horizontally
+	-- or :set wrap to soft-wrap long lines — useful for LogLens where log
+	-- messages must not be cut to the current terminal width.
+	if truncate == false then
+		for i, c in ipairs(columns) do
+			c._computed = widths[i]
+		end
+		return
 	end
 
 	while total_used() > available_width do
@@ -356,7 +367,11 @@ function M.render(opts)
 	end
 
 	-- Keep both left and right padding so table aligns with navbar framing.
-	compute_widths(columns, rows, math.max(width - (margin * 2) - 1, 1), gap_after, tree, fill)
+	local do_truncate = opts.truncate
+	if do_truncate == nil then
+		do_truncate = true
+	end
+	compute_widths(columns, rows, math.max(width - (margin * 2) - 1, 1), gap_after, tree, fill, do_truncate)
 
 	local lines = {}
 	local line_map = {}

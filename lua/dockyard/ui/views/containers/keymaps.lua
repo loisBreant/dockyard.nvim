@@ -160,6 +160,26 @@ function M.setup(buf, notify, hooks)
 			index = 9,
 		})
 	)
+	resolver.push(
+		items,
+		resolver.item("containers.filter", {
+			desc = "Filter containers",
+			callback = function()
+				controller.prompt_filter()
+			end,
+			index = 10,
+		})
+	)
+	resolver.push(
+		items,
+		resolver.item("containers.clear_filter", {
+			desc = "Clear filter",
+			callback = function()
+				controller.clear_filter()
+			end,
+			index = 11,
+		})
+	)
 
 	resolver.push(
 		items,
@@ -191,6 +211,8 @@ function M.teardown(buf)
 	resolver.push(items, resolver.removal("ui.open_details"))
 	resolver.push(items, resolver.removal("ui.open_panel"))
 	resolver.push(items, resolver.removal("containers.open_files"))
+	resolver.push(items, resolver.removal("containers.filter"))
+	resolver.push(items, resolver.removal("containers.clear_filter"))
 	help.remove(GROUP, items, { buffer = buf })
 	controller.on_teardown()
 end

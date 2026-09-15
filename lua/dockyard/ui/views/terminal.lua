@@ -1,5 +1,3 @@
--- TODO: Add support for native terminal buffers as well, but toggleterm is the most popular and has a good API for this
-
 local M = {}
 
 local statusline = require("dockyard.ui.statusline")
@@ -7,6 +5,10 @@ local statusline = require("dockyard.ui.statusline")
 -- One Sessions per container. Those are for reference
 local toggleterm_sessions = {}
 local float_session = nil
+
+-- Native terminal fallback (when toggleterm is not installed)
+local native_float = nil
+local native_sessions = {}
 
 local function build_exec_cmd(container_id, shell)
 	shell = shell or "sh"
@@ -163,11 +165,133 @@ local function open_with_toggleterm(container_id, shell, ctx)
 		return open_panel_terminal(Terminal, container_id, shell, source_win)
 	end
 
-	if mode == "full" then
-		return open_full_terminal(Terminal, container_id, shell, target_win, source_win)
+	-- For all other modes (full/tab/split/vsplit/current/float alias) use a
+	-- horizontal split. This keeps T working no matter how Dockyard was opened.
+	return open_full_terminal(Terminal, container_id, shell, target_win, source_win)
+end
+
+-- ----------------------------
+-- Native terminal backend (fallback when toggleterm is absent)
+-- ----------------------------
+local function open_native_float(container_id, shell)
+	if native_float ~= nil and native_float.container_id ~= container_id then
+		if is_valid_win(native_float.win) then
+			pcall(vim.api.nvim_win_close, native_float.win, true)
+		end
+		if native_float.buf ~= nil and vim.api.nvim_buf_is_valid(native_float.buf) then
+			pcall(vim.api.nvim_buf_delete, native_float.buf, { force = true })
+		end
+		native_float = nil
 	end
 
-	return false
+	if native_float ~= nil and is_valid_win(native_float.win) and native_float.buf ~= nil and vim.api.nvim_buf_is_valid(native_float.buf) then
+		vim.api.nvim_set_current_win(native_float.win)
+		vim.cmd("startinsert")
+		return true
+	end
+
+	local buf = vim.api.nvim_create_buf(false, true)
+	pcall(vim.api.nvim_buf_set_name, buf, "dockyard-term://" .. container_id .. "/float")
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
+
+	local width = math.floor(vim.o.columns * 0.7)
+	local height = math.floor(vim.o.lines * 0.5)
+	local row = math.floor((vim.o.lines - height) / 2)
+	local col = math.floor((vim.o.columns - width) / 2)
+
+	local win = vim.api.nvim_open_win(buf, true, {
+		relative = "editor",
+		width = width,
+		height = height,
+		row = row,
+		col = col,
+		style = "minimal",
+		border = "rounded",
+		zindex = 260,
+	})
+	vim.api.nvim_set_option_value("winblend", 0, { win = win })
+
+	local cmd = build_exec_cmd(container_id, shell)
+	-- Use termopen so we get on_exit handling; fall back to :terminal
+	local ok = pcall(vim.fn.termopen, cmd, {
+		on_exit = function()
+			vim.schedule(function()
+				if is_valid_win(win) then
+					pcall(vim.api.nvim_win_close, win, true)
+				end
+				if vim.api.nvim_buf_is_valid(buf) then
+					pcall(vim.api.nvim_buf_delete, buf, { force = true })
+				end
+				if native_float and native_float.buf == buf then
+					native_float = nil
+				end
+			end)
+		end,
+	})
+	if not ok then
+		-- Fallback: :terminal (Neovim 0.10+ always has it)
+		vim.api.nvim_win_set_buf(win, buf)
+		vim.fn.termopen(cmd)
+	end
+	vim.cmd("startinsert")
+	native_float = { container_id = container_id, buf = buf, win = win }
+	return true
+end
+
+local function open_native_split(container_id, shell, target_win)
+	local sess = native_sessions[container_id]
+	if sess ~= nil and is_valid_win(sess.win) and sess.buf ~= nil and vim.api.nvim_buf_is_valid(sess.buf) then
+		vim.api.nvim_set_current_win(sess.win)
+		vim.cmd("startinsert")
+		return true
+	end
+
+	if is_valid_win(target_win) then
+		vim.api.nvim_set_current_win(target_win)
+	end
+	vim.cmd("15split")
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_create_buf(false, true)
+	pcall(vim.api.nvim_buf_set_name, buf, "dockyard-term://" .. container_id)
+	vim.api.nvim_win_set_buf(win, buf)
+	vim.api.nvim_set_option_value("bufhidden", "hide", { buf = buf })
+	vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
+
+	local cmd = build_exec_cmd(container_id, shell)
+	local ok = pcall(vim.fn.termopen, cmd, {
+		on_exit = function()
+			vim.schedule(function()
+				if is_valid_win(win) then
+					pcall(vim.api.nvim_win_close, win, true)
+				end
+				if vim.api.nvim_buf_is_valid(buf) then
+					pcall(vim.api.nvim_buf_delete, buf, { force = true })
+				end
+				if native_sessions[container_id] and native_sessions[container_id].buf == buf then
+					native_sessions[container_id] = nil
+				end
+			end)
+		end,
+	})
+	if not ok then
+		vim.fn.termopen(cmd)
+	end
+	vim.cmd("startinsert")
+	native_sessions[container_id] = { buf = buf, win = win }
+	return true
+end
+
+local function open_with_native(container_id, shell, ctx)
+	local mode = (ctx and ctx.mode) or "panel"
+	local target_win = ctx and ctx.win
+	-- Mirror toggleterm's mode split: panel -> float, otherwise -> split.
+	-- For all non-panel modes (full/tab/split/vsplit/current) a horizontal split is the
+	-- most predictable native fallback and matches toggleterm's full behaviour.
+	if mode == "panel" then
+		return open_native_float(container_id, shell)
+	end
+	return open_native_split(container_id, shell, target_win)
 end
 
 function M.open(container_id, shell, ctx)
@@ -180,7 +304,11 @@ function M.open(container_id, shell, ctx)
 		return
 	end
 
-	vim.notify("Dockyard: toggleterm not found or failed", vim.log.levels.WARN)
+	if open_with_native(container_id, shell, ctx) then
+		return
+	end
+
+	vim.notify("Dockyard: failed to open terminal", vim.log.levels.ERROR)
 end
 
 return M

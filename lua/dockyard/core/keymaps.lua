@@ -20,6 +20,8 @@ local M = {}
 ---@field open_terminal? DockyardKeymapValue
 ---@field open_logs? DockyardKeymapValue
 ---@field open_files? DockyardKeymapValue
+---@field filter? DockyardKeymapValue
+---@field clear_filter? DockyardKeymapValue
 
 ---@class DockyardImagesKeymaps
 ---@field remove? DockyardKeymapValue
@@ -192,6 +194,8 @@ local CONTAINERS_IDS = {
 	"containers.open_terminal",
 	"containers.open_logs",
 	"containers.open_files",
+	"containers.filter",
+	"containers.clear_filter",
 }
 
 local IMAGES_IDS = {

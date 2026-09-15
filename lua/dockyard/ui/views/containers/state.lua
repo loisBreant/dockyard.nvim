@@ -3,6 +3,7 @@
 ---@field spinner_frame string|nil
 ---@field poll_spinner SpinnerInstance|nil
 ---@field expanded table<string, boolean>
+---@field filter string|nil Filter text (case-insensitive substring match)
 
 ---@class DockyardContainersViewState
 local M = {
@@ -10,6 +11,7 @@ local M = {
 	spinner_frame = nil,
 	poll_spinner = nil,
 	expanded = {},
+	filter = nil,
 }
 
 function M.toggle(key)
@@ -22,6 +24,7 @@ end
 
 function M.reset()
 	M.expanded = {}
+	M.filter = nil
 end
 
 return M

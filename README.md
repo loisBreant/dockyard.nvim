@@ -45,6 +45,7 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - Neovim `>= 0.10`
 - Docker CLI available in `$PATH`
 - [`akinsho/toggleterm.nvim`](https://github.com/akinsho/toggleterm.nvim) (optional, for `T` shell keymap)
+- [`m00qek/baleia.nvim`](https://github.com/m00qek/baleia.nvim) (optional, for ANSI colors in logs — e.g. `[0;32m  OK  [0m`)
 
 ## Installation
 
@@ -54,7 +55,8 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 {
   "emrearmagan/dockyard.nvim",
   dependencies = {
-    "akinsho/toggleterm.nvim", -- optional
+    "akinsho/toggleterm.nvim", -- optional, for T shell
+    "m00qek/baleia.nvim", -- optional, for ANSI colors in logs
   },
   cmd = { "Dockyard", "DockyardFloat" },
   lazy = true,
@@ -238,6 +240,8 @@ require("dockyard").setup({
       remove = "d",
       open_terminal = "T",
       open_logs = "L",
+      filter = "F", -- filter containers (e.g. "running" to show only running)
+      clear_filter = "C",
     },
     images = {
       remove = "d",

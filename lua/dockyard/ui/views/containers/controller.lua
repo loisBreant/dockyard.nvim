@@ -139,6 +139,37 @@ function M.toggle(node)
 	view_state.toggle(node.key)
 end
 
+function M.set_filter(filter)
+	if filter == nil or filter == "" then
+		view_state.filter = nil
+	else
+		view_state.filter = filter
+	end
+	renderer.render()
+	if is_containers_view_active() then
+		-- Move cursor to first matching container after filter
+		navigation.first()
+	end
+end
+
+function M.clear_filter()
+	view_state.filter = nil
+	renderer.render()
+end
+
+function M.prompt_filter()
+	vim.ui.input({ prompt = "Filter containers: ", default = view_state.filter or "" }, function(input)
+		if input == nil then
+			return
+		end
+		if input == "" then
+			M.clear_filter()
+		else
+			M.set_filter(input)
+		end
+	end)
+end
+
 function M.on_teardown()
 	stop_polling()
 end

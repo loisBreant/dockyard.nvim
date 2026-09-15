@@ -87,7 +87,15 @@ function M.first()
 	if #lines == 0 then
 		return
 	end
-	vim.api.nvim_win_set_cursor(0, { lines[1], 0 })
+	local count = vim.v.count
+	if count ~= 0 then
+		local idx = math.min(count, #lines)
+		-- v:count is 1-based row index when used with gg (e.g. 3gg -> 3rd row)
+		idx = math.max(1, idx)
+		vim.api.nvim_win_set_cursor(0, { lines[idx], 0 })
+	else
+		vim.api.nvim_win_set_cursor(0, { lines[1], 0 })
+	end
 end
 
 function M.last()
@@ -95,7 +103,14 @@ function M.last()
 	if #lines == 0 then
 		return
 	end
-	vim.api.nvim_win_set_cursor(0, { lines[#lines], 0 })
+	local count = vim.v.count
+	if count ~= 0 then
+		local idx = math.min(count, #lines)
+		idx = math.max(1, idx)
+		vim.api.nvim_win_set_cursor(0, { lines[idx], 0 })
+	else
+		vim.api.nvim_win_set_cursor(0, { lines[#lines], 0 })
+	end
 end
 
 return M

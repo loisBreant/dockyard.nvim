@@ -3,6 +3,7 @@ local M = {}
 local header = require("dockyard.ui.loglens.header")
 local table_renderer = require("dockyard.ui.components.table")
 local highlighter = require("dockyard.ui.loglens.highlight")
+local baleia = require("dockyard.ui.loglens.baleia")
 local ns = vim.api.nvim_create_namespace("dockyard.loglens")
 
 ---@param state LogLensState
@@ -179,6 +180,7 @@ function M.render(state)
 		width = width,
 		margin = 1,
 		fill = false,
+		truncate = false,
 	})
 
 	vim.api.nvim_set_option_value("modifiable", true, { buf = state.buf_id })
@@ -187,6 +189,11 @@ function M.render(state)
 	if not state.raw then
 		highlighter.apply(state.buf_id, ns, lines, line_map, source.highlights or {})
 	end
+
+	-- If baleia.nvim is installed, interpret ANSI escape sequences.
+	-- This turns `[0;32m  OK  [0m]` into colored highlights and strips the codes.
+	-- Safe no-op when baleia is absent.
+	baleia.colorize(state.buf_id)
 
 	-- create a mapping from line to entry for later retrieval (e.g. shown for the popup)
 	local resolved_line_map = {}
