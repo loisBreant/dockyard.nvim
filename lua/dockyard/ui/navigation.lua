@@ -113,4 +113,41 @@ function M.last()
 	end
 end
 
+-- Keep the cursor on the same item across re-renders.
+
+local function node_key(node)
+	if type(node) ~= "table" then
+		return nil
+	end
+	local item = node.item or node
+	return tostring(node.kind) .. ":" .. tostring(item.id or item.name)
+end
+
+local function dashboard_win()
+	local win = ui_state.win_id
+	return win and vim.api.nvim_win_is_valid(win) and win or nil
+end
+
+---True when the last keep_selection() put the cursor back on its item.
+M.restored = false
+
+---@param draw fun()
+function M.keep_selection(draw)
+	local win = dashboard_win()
+	local key = win and node_key(ui_state.line_map[vim.api.nvim_win_get_cursor(win)[1]])
+	draw()
+	M.restored = false
+	win = dashboard_win()
+	if not (win and key) then
+		return
+	end
+	for lnum, node in pairs(ui_state.line_map or {}) do
+		if node_key(node) == key then
+			vim.api.nvim_win_set_cursor(win, { lnum, 0 })
+			M.restored = true
+			return
+		end
+	end
+end
+
 return M

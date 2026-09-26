@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.2
+
+### Fixed
+
+- The dashboard keeps the cursor on the selected item after an action or a refresh instead of jumping to the top
+- `:Telescope dockyard` shows up in completion
+
+### Changed
+
+- The selected row is highlighted (`DockyardCursorLine`)
+
 ## 0.4.1
 
 ### Fixed

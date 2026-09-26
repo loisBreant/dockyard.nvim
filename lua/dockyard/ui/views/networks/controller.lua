@@ -72,7 +72,8 @@ local function render(opts)
 	if ui_state.win_id ~= nil and vim.api.nvim_win_is_valid(ui_state.win_id) then
 		renderer.render()
 
-		if opts and opts.focus_first == true then
+		-- only when the previous selection is gone (first open, view switch)
+		if opts and opts.focus_first == true and not navigation.restored then
 			navigation.first()
 		end
 	end

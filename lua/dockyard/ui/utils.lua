@@ -109,13 +109,13 @@ function M.apply_win_config(win, mode)
 	if mode == "full" or mode == "tab" or mode == "current" or mode == "split" or mode == "vsplit" then
 		vim.api.nvim_set_option_value(
 			"winhighlight",
-			"Normal:Normal,NormalFloat:Normal,FloatBorder:FloatBorder,CursorLine:CursorLine",
+			"Normal:Normal,NormalFloat:Normal,FloatBorder:FloatBorder,CursorLine:DockyardCursorLine",
 			{ win = win }
 		)
 	else
 		vim.api.nvim_set_option_value(
 			"winhighlight",
-			"Normal:NormalFloat,NormalFloat:NormalFloat,FloatBorder:FloatBorder,CursorLine:CursorLine",
+			"Normal:NormalFloat,NormalFloat:NormalFloat,FloatBorder:FloatBorder,CursorLine:DockyardCursorLine",
 			{ win = win }
 		)
 	end

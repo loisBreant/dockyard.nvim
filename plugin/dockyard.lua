@@ -103,6 +103,24 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 	end,
 })
 
+-- register the Telescope extension once Telescope is loaded, so that
+-- :Telescope dockyard shows up in completion
+local function load_telescope_extension()
+	if not package.loaded["telescope"] then
+		return false
+	end
+	pcall(function()
+		require("telescope").load_extension("dockyard")
+	end)
+	return true -- deletes the autocmd
+end
+if not load_telescope_extension() then
+	vim.api.nvim_create_autocmd({ "CmdlineEnter", "SourcePost" }, {
+		group = group,
+		callback = load_telescope_extension,
+	})
+end
+
 -- buffers already open when a plugin manager loads us late
 local function matches(name, patterns)
 	for _, pattern in ipairs(patterns) do

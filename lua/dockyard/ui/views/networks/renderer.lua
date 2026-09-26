@@ -1,3 +1,4 @@
+local navigation = require("dockyard.ui.navigation")
 local M = {}
 
 local docker = require("dockyard.core.docker")
@@ -241,7 +242,7 @@ local function build_body(width, networks, containers)
 	return lines, line_map, spans
 end
 
-function M.render()
+local function draw()
 	local buf = ui_state.buf_id
 	if buf == nil or not vim.api.nvim_buf_is_valid(buf) then
 		return
@@ -289,6 +290,10 @@ function M.render()
 	ui_utils.apply_spans(buf, spans)
 	vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 	set_statusline_items(networks, containers)
+end
+
+function M.render()
+	navigation.keep_selection(draw)
 end
 
 return M

@@ -286,6 +286,7 @@ The action buttons use:
   `DockyardLensStop`     stop / down buttons
   `DockyardLensAction`   other buttons
   `DockyardLensMuted`    separators
+  `DockyardCursorLine`   selected row in the dashboard
   `DockyardPorts`        port buttons
   `DockyardRunning`, `DockyardStopped`, `DockyardPending`,
   `DockyardRestarting`   service states

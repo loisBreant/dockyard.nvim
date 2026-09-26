@@ -38,6 +38,7 @@ local groups = {
 	DockyardImage = { fg = palette.mauve },
 	DockyardPorts = { fg = palette.orange },
 	DockyardMuted = { fg = palette.muted },
+	DockyardCursorLine = { bg = palette.bg_soft },
 
 	DockyardNavActive = { link = "DockyardTabActive" },
 	DockyardNavInactive = { link = "DockyardTabInactive" },
