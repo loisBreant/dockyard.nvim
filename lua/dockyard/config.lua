@@ -132,219 +132,86 @@ M.options = {
 	},
 }
 
-local _dockyard_strategies = { "current", "edit", "split", "vsplit", "tab", "float" }
+M.defaults = vim.deepcopy(M.options)
 
-local function normalize_strategy(val)
-	if not val or val == "" then
-		return nil
-	end
-	val = vim.trim(tostring(val)):lower()
-	if val == "edit" or val == "current" or val == "buffer" or val == "enew" then
-		return "current"
-	end
-	if val == "split" or val == "horizontal" or val == "hsplit" or val == "h_split" then
-		return "split"
-	end
-	if val == "vsplit" or val == "vertical" or val == "v_split" then
-		return "vsplit"
-	end
-	if val == "tab" or val == "tabnew" or val == "tabe" then
-		return "tab"
-	end
-	if val == "float" or val == "panel" or val == "floating" then
-		return "float"
-	end
-	return val
-end
-
--- Resolve final strategy honoring Vim's command modifiers (:vertical, :tab, :horizontal, :botright, etc.)
--- This mirrors oil.nvim's mods support and the standard Vim convention where
--- :vertical Dockyard => vsplit, :tab Dockyard => tab, :horizontal Dockyard => split.
-local function resolve_strategy(arg, mods)
-	local from_arg = normalize_strategy(arg)
-	if from_arg and vim.tbl_contains(_dockyard_strategies, from_arg) then
-		return from_arg
-	end
-	if from_arg ~= nil then
-		vim.notify("Dockyard: unknown strategy '" .. tostring(arg) .. "' — falling back to default", vim.log.levels.WARN)
-	end
-	if mods and mods ~= "" then
-		local m = mods:lower()
-		if m:find("tab") then
-			return "tab"
-		end
-		if m:find("vertical") then
-			return "vsplit"
-		end
-		if m:find("horizontal") then
-			return "split"
-		end
-		-- :botright / :leftabove / :aboveleft / :belowright / :topleft imply a split
-		if m:find("botright") or m:find("leftabove") or m:find("aboveleft") or m:find("belowright") or m:find("topleft") then
-			return "split"
+---Type errors in the options, as "path: message" strings.
+---@param options DockyardConfig
+---@return string[]
+function M.validate(options)
+	local errors = {}
+	-- plain type checks: vim.validate's signature differs between 0.10 and 0.11
+	local function check(path, value, expected)
+		if type(value) ~= expected then
+			table.insert(errors, ("%s: expected %s, got %s"):format(path, expected, type(value)))
 		end
 	end
-	return M.options.display.open_strategy or "tab"
-end
-
-local function dockyard_complete(arg_lead, _cmd_line, _cursor_pos)
-	local strategies = { "current", "edit", "split", "vsplit", "tab", "float" }
-	if not arg_lead or arg_lead == "" then
-		return strategies
-	end
-	local out = {}
-	local lead = arg_lead:lower()
-	for _, s in ipairs(strategies) do
-		if vim.startswith(s, lead) then
-			table.insert(out, s)
+	local function check_keymap(path, value)
+		local t = type(value)
+		if value ~= nil and t ~= "string" and t ~= "table" and value ~= false then
+			table.insert(errors, path .. ": expected string, list of strings or false, got " .. t)
 		end
 	end
-	return out
-end
 
-local function create_commands()
-	pcall(vim.api.nvim_del_user_command, "Dockyard")
-	pcall(vim.api.nvim_del_user_command, "DockyardFloat")
-	pcall(vim.api.nvim_del_user_command, "DockyardFull")
-	pcall(vim.api.nvim_del_user_command, "DockyardBuild")
-	pcall(vim.api.nvim_del_user_command, "DockyardRun")
-	pcall(vim.api.nvim_del_user_command, "DockyardFiles")
-	pcall(vim.api.nvim_del_user_command, "DockyardLogs")
-	pcall(vim.api.nvim_del_user_command, "DockyardService")
-	pcall(vim.api.nvim_del_user_command, "DockyardPick")
-
-	vim.api.nvim_create_user_command("DockyardPick", function()
-		require("dockyard.picker").pick()
-	end, { desc = "Pick a container and act on it (logs, shell, files, port, start/stop, restart)" })
-
-	vim.api.nvim_create_user_command("Dockyard", function(opts)
-		local strategy = resolve_strategy(opts.args, opts.mods)
-		require("dockyard.ui").open_with_strategy(strategy, opts.mods)
-	end, {
-		desc = "Open Dockyard UI (args: current|split|vsplit|tab|float; also honors :vertical/:tab/:horizontal modifiers)",
-		nargs = "?",
-		complete = dockyard_complete,
-	})
-
-	-- Kept for backwards compatibility — delegate to unified strategy.
-	vim.api.nvim_create_user_command("DockyardFloat", function()
-		require("dockyard.ui").open_with_strategy("float", nil)
-	end, { desc = "Open Dockyard Floating UI (deprecated: use :Dockyard float)" })
-
-	vim.api.nvim_create_user_command("DockyardFull", function()
-		require("dockyard.ui").open_with_strategy("tab", nil)
-	end, { desc = "Open Dockyard fullscreen UI (deprecated: use :Dockyard tab)" })
-
-	vim.api.nvim_create_user_command("DockyardBuild", function()
-		require("dockyard.commands").build()
-	end, { desc = "Build Docker image from current Dockerfile" })
-
-	vim.api.nvim_create_user_command("DockyardRun", function(cmd_opts)
-		if cmd_opts.range == 2 then
-			require("dockyard.commands").run_visual(cmd_opts.line1, cmd_opts.line2)
-		else
-			require("dockyard.commands").run_all()
+	check("display", options.display, "table")
+	check("compose_lens", options.compose_lens, "table")
+	check("loglens", options.loglens, "table")
+	check("keymaps", options.keymaps, "table")
+	if type(options.display) == "table" then
+		check("display.views", options.display.views, "table")
+		check("display.open_strategy", options.display.open_strategy, "string")
+		local scope = options.display.project_scope
+		if scope ~= true and scope ~= false and scope ~= "auto" then
+			table.insert(errors, 'display.project_scope: expected true, false or "auto", got ' .. vim.inspect(scope))
 		end
-	end, { desc = "Run Docker Compose services", range = true })
-
-	local service_actions = { "run", "stop", "restart", "build", "logs", "shell", "open" }
-	vim.api.nvim_create_user_command("DockyardService", function(cmd_opts)
-		local action = cmd_opts.fargs[1] or "run"
-		if not vim.tbl_contains(service_actions, action) then
-			vim.notify("DockyardService: unknown action '" .. action .. "'", vim.log.levels.ERROR)
-			return
-		end
-		local service = require("dockyard.commands.context").service_at_cursor()
-		if not service then
-			vim.notify("DockyardService: cursor is not on a compose service", vim.log.levels.WARN)
-			return
-		end
-		require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, service)
-	end, {
-		desc = "Act on the compose service under the cursor (run|stop|restart|build|logs|shell|open)",
-		nargs = "?",
-		complete = function(arg_lead)
-			return vim.tbl_filter(function(a)
-				return vim.startswith(a, arg_lead)
-			end, service_actions)
-		end,
-	})
-
-	vim.api.nvim_create_user_command("DockyardLogs", function(cmd_opts)
-		local name = cmd_opts.fargs[1]
-		if not name or name == "" then
-			vim.notify("DockyardLogs: container required", vim.log.levels.ERROR)
-			return
-		end
-		require("dockyard.core.docker").list_containers(function(result)
-			if not result.ok or type(result.data) ~= "table" then
-				vim.schedule(function()
-					vim.notify("DockyardLogs: failed to list containers", vim.log.levels.ERROR)
-				end)
-				return
-			end
-			local match
-			for _, c in ipairs(result.data) do
-				if c.name == name or (c.name and c.name:gsub("^/", "") == name) then
-					match = c
-					break
+	end
+	if type(options.compose_lens) == "table" then
+		check("compose_lens.enabled", options.compose_lens.enabled, "boolean")
+	end
+	if type(options.keymaps) == "table" then
+		for context, maps in pairs(options.keymaps) do
+			if type(maps) == "table" then
+				for action, key in pairs(maps) do
+					check_keymap(("keymaps.%s.%s"):format(context, action), key)
 				end
 			end
-			vim.schedule(function()
-				if not match then
-					vim.notify("DockyardLogs: container '" .. name .. "' not found", vim.log.levels.ERROR)
-					return
-				end
-				require("dockyard.ui.loglens").open(match, { mode = "split" })
-			end)
-		end)
-	end, {
-		desc = "Open LogLens for a container",
-		nargs = 1,
-		complete = function(arg_lead)
-			local out = vim.fn.systemlist({ "docker", "ps", "--format", "{{.Names}}" })
-			local matches = {}
-			for _, n in ipairs(out) do
-				if n:find(arg_lead, 1, true) == 1 then
-					table.insert(matches, n)
-				end
-			end
-			return matches
-		end,
-	})
-
-	vim.api.nvim_create_user_command("DockyardFiles", function(cmd_opts)
-		local container = cmd_opts.fargs[1]
-		local path = cmd_opts.fargs[2] or "/"
-		if not container or container == "" then
-			vim.notify("DockyardFiles: container required", vim.log.levels.ERROR)
-			return
 		end
-		require("dockyard.files").open(container, path)
-	end, {
-		desc = "Browse a container's filesystem",
-		nargs = "+",
-		complete = function(arg_lead)
-			local out = vim.fn.systemlist({ "docker", "ps", "--format", "{{.Names}}" })
-			local matches = {}
-			for _, name in ipairs(out) do
-				if name:find(arg_lead, 1, true) == 1 then
-					table.insert(matches, name)
-				end
-			end
-			return matches
-		end,
-	})
+	end
+	return errors
 end
 
+---Options set by the user that Dockyard does not know (typos, removed options).
+---loglens.containers is free-form and not checked.
+---@param options table
+---@return string[]
+function M.unknown_keys(options)
+	local unknown = {}
+	local function walk(user, defaults, path)
+		for key, value in pairs(user) do
+			local p = path == "" and tostring(key) or (path .. "." .. tostring(key))
+			if defaults[key] == nil then
+				table.insert(unknown, p)
+			elseif type(value) == "table" and type(defaults[key]) == "table" and not vim.islist(defaults[key]) and p ~= "loglens.containers" then
+				walk(value, defaults[key], p)
+			end
+		end
+	end
+	walk(options, M.defaults, "")
+	table.sort(unknown)
+	return unknown
+end
+
+---@type DockyardConfig
+M.user = {}
+
+---Merge user options over the defaults. Only configuration: commands and
+---autocommands are set up by plugin/dockyard.lua, so calling setup() is optional.
 ---@param opts? DockyardConfig
 function M.setup(opts)
-	M.options = vim.tbl_deep_extend("force", M.options, opts or {})
-	create_commands()
-	require("dockyard.files").setup()
-	if M.options.compose_lens.enabled then
-		require("dockyard.compose_lens").setup()
-		require("dockyard.dockerfile_lens").setup()
+	M.user = opts or {}
+	M.options = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), M.user)
+	local errors = M.validate(M.options)
+	if #errors > 0 then
+		vim.notify("dockyard: invalid options\n  " .. table.concat(errors, "\n  "), vim.log.levels.ERROR)
 	end
 end
 

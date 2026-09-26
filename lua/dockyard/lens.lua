@@ -96,6 +96,7 @@ end
 ---@param buf integer
 ---@param on_click fun(data: table)
 function M.attach(buf, on_click)
+	require("dockyard.ui.highlights").setup()
 	vim.keymap.set("n", "<LeftMouse>", function()
 		local b = button_at_mouse(buf)
 		if not b then

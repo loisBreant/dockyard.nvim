@@ -263,25 +263,16 @@ local function attach(buf)
 	refresh(buf)
 end
 
-local function maybe_attach(buf)
+---Show the lens in `buf` if it is a compose file and the lens is enabled.
+---Called from plugin/dockyard.lua when a compose file is opened.
+---@param buf integer
+function M.maybe_attach(buf)
+	if not require("dockyard.config").options.compose_lens.enabled then
+		return
+	end
 	local name = vim.api.nvim_buf_get_name(buf)
 	if name ~= "" and vim.bo[buf].buftype == "" and context.is_compose_file(name) then
 		attach(buf)
-	end
-end
-
-function M.setup()
-	vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "BufFilePost" }, {
-		group = group,
-		callback = function(args)
-			maybe_attach(args.buf)
-		end,
-	})
-	-- buffers opened before the plugin loaded (lazy loading on the compose file itself)
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_loaded(buf) then
-			maybe_attach(buf)
-		end
 	end
 end
 

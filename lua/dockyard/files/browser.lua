@@ -506,6 +506,7 @@ end
 ---@param path string
 ---@param opts? { win?: integer }
 function M.open(container, path, opts)
+	require("dockyard.ui.highlights").setup()
 	opts = opts or {}
 	path = core.normalize(path)
 

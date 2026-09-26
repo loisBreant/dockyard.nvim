@@ -40,6 +40,7 @@ end
 ---@param container Container|nil
 ---@param opts? { mode?: "auto"|"split"|"floating"|"fullscreen" }
 function M.open(container, opts)
+	require("dockyard.ui.highlights").setup()
 	if not container or not container.id then
 		vim.notify("LogLens: No valid container selected", vim.log.levels.WARN)
 		return

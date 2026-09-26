@@ -99,24 +99,16 @@ local function attach(buf)
 	render(buf)
 end
 
-local function maybe_attach(buf)
+---Show the lens in `buf` if it is a Dockerfile and the lens is enabled.
+---Called from plugin/dockyard.lua when a Dockerfile is opened.
+---@param buf integer
+function M.maybe_attach(buf)
+	if not require("dockyard.config").options.compose_lens.enabled then
+		return
+	end
 	local name = vim.api.nvim_buf_get_name(buf)
 	if name ~= "" and vim.bo[buf].buftype == "" and context.is_dockerfile(name) then
 		attach(buf)
-	end
-end
-
-function M.setup()
-	vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "BufFilePost" }, {
-		group = group,
-		callback = function(args)
-			maybe_attach(args.buf)
-		end,
-	})
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_loaded(buf) then
-			maybe_attach(buf)
-		end
 	end
 end
 

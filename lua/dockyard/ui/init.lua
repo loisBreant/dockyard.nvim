@@ -294,6 +294,7 @@ M.open_float = M.open
 --- @param strategy DockyardOpenStrategy|nil Explicit arg or nil to use config.mods
 --- @param mods string|nil Vim command modifiers (opts.mods)
 M.open_with_strategy = function(strategy, mods)
+	require("dockyard.ui.highlights").setup()
 	local s = strategy or config.options.display.open_strategy or "tab"
 	-- Normalize
 	s = tostring(s):lower()

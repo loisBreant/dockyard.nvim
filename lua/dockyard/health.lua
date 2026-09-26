@@ -51,22 +51,41 @@ function M.check()
 
 	--- Plugin
 	vim.health.start("Plugin")
-	if vim.g.loaded_dockyard then
-		vim.health.ok("Plugin loaded")
-	else
-		vim.health.info("Plugin not loaded yet")
-	end
-
-	if vim.fn.exists(":Dockyard") > 0 then
+	if vim.fn.exists(":Dockyard") == 2 then
 		vim.health.ok(":Dockyard command registered")
 	else
-		vim.health.error(":Dockyard command not found; call require('dockyard').setup()")
+		vim.health.error(":Dockyard command not found: is plugin/dockyard.lua on the runtimepath?")
 	end
 
-	if vim.fn.exists(":DockyardFloat") > 0 then
-		vim.health.ok(":DockyardFloat command registered")
+	local has_telescope = pcall(require, "telescope")
+	if has_telescope then
+		vim.health.ok("telescope.nvim found — :Telescope dockyard available")
 	else
-		vim.health.error(":DockyardFloat command not found; call require('dockyard').setup()")
+		vim.health.ok("telescope.nvim not found — :Dockyard pick uses vim.ui.select")
+	end
+
+	local compose = vim.fn.executable("docker") == 1 and vim.system({ "docker", "compose", "version" }):wait().code == 0
+	if compose then
+		vim.health.ok("docker compose available — compose actions enabled")
+	elseif vim.fn.executable("docker-compose") == 1 then
+		vim.health.ok("docker-compose available — compose actions enabled")
+	else
+		vim.health.warn("neither `docker compose` nor `docker-compose` found — compose actions will fail")
+	end
+
+	--- Configuration
+	vim.health.start("Configuration")
+	local config = require("dockyard.config")
+	local errors = config.validate(config.options)
+	for _, err in ipairs(errors) do
+		vim.health.error(err)
+	end
+	local unknown = config.unknown_keys(config.user or {})
+	for _, key in ipairs(unknown) do
+		vim.health.warn("unknown option: " .. key .. " (typo, or an option this version does not have)")
+	end
+	if #errors == 0 and #unknown == 0 then
+		vim.health.ok("options are valid")
 	end
 
 	--- Keymaps
