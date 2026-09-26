@@ -1,6 +1,4 @@
--- :Telescope dockyard — fuzzy-pick a container, <CR> for the action menu or a
--- direct key: <C-l> logs, <C-t> shell, <C-f> files, <C-o> open port,
--- <C-s> start/stop, <C-r> restart, <C-a> every container (ignore project scope).
+-- :Telescope dockyard
 
 local ok, telescope = pcall(require, "telescope")
 if not ok then

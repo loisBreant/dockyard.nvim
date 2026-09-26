@@ -333,7 +333,7 @@ local function grep()
 	end)
 end
 
--- copy / cut buffer, shared across directories (and containers: paste checks)
+-- entry marked with c / x, pasted with p
 ---@type { container: string, path: string, name: string, move: boolean }|nil
 local clipboard = nil
 
@@ -359,7 +359,6 @@ local function paste()
 		if move then
 			return notify("Source and destination are the same", vim.log.levels.WARN)
 		end
-		-- copying next to itself: pick a free name
 		dst = dst .. ".copy"
 	end
 	local fn = move and core.mv or core.cp
@@ -512,7 +511,7 @@ function M.open(container, path, opts)
 	path = core.normalize(path)
 
 	local name = ("dockyard://%s"):format(container)
-	-- exact lookup: bufnr() would also match dockyard://<container>/some/file
+	-- not bufnr(): it matches names partially
 	local buf = -1
 	for _, b in ipairs(vim.api.nvim_list_bufs()) do
 		if vim.api.nvim_buf_get_name(b) == name then

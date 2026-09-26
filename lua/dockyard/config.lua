@@ -134,12 +134,11 @@ M.options = {
 
 M.defaults = vim.deepcopy(M.options)
 
----Type errors in the options, as "path: message" strings.
 ---@param options DockyardConfig
----@return string[]
+---@return string[] errors
 function M.validate(options)
 	local errors = {}
-	-- plain type checks: vim.validate's signature differs between 0.10 and 0.11
+	-- vim.validate's signature changed in 0.11
 	local function check(path, value, expected)
 		if type(value) ~= expected then
 			table.insert(errors, ("%s: expected %s, got %s"):format(path, expected, type(value)))
@@ -179,8 +178,7 @@ function M.validate(options)
 	return errors
 end
 
----Options set by the user that Dockyard does not know (typos, removed options).
----loglens.containers is free-form and not checked.
+---Options Dockyard does not know (typos...). loglens.containers is free-form.
 ---@param options table
 ---@return string[]
 function M.unknown_keys(options)
@@ -203,8 +201,7 @@ end
 ---@type DockyardConfig
 M.user = {}
 
----Merge user options over the defaults. Only configuration: commands and
----autocommands are set up by plugin/dockyard.lua, so calling setup() is optional.
+---Optional: only merges options, plugin/dockyard.lua does the rest.
 ---@param opts? DockyardConfig
 function M.setup(opts)
 	M.user = opts or {}

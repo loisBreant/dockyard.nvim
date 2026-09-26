@@ -1,5 +1,4 @@
--- Minimal test runner: nvim --headless --clean -l tests/run.lua [spec files...]
--- Specs use describe / it / eq / truthy, globals defined here.
+-- Tiny test runner: nvim --headless --clean -l tests/run.lua [specs...]
 
 local root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h")
 vim.opt.rtp:prepend(root)

@@ -13,15 +13,12 @@ local function notify(msg, level)
 	vim.notify("[dockyard] " .. msg, level or vim.log.levels.INFO)
 end
 
--- dockyard://<container>/<path> buffers read from and write to the container,
--- so container files open from :edit, the quickfix list or the browser alike.
--- plugin/dockyard.lua routes BufReadCmd / BufWriteCmd here.
+-- dockyard://<container>/<path> buffers
 
 ---@param args table autocmd callback argument
 function M.read_cmd(args)
 	local container, path = args.match:match("^dockyard://([^/]+)(/.*)$")
 	if not container then
-		-- the browser's own buffer (dockyard://<container>) is managed by the browser
 		return
 	end
 	local buf = args.buf
@@ -29,7 +26,6 @@ function M.read_cmd(args)
 	if not lines then
 		local stat = vim.system({ "docker", "exec", container, "test", "-d", path }):wait()
 		if stat.code == 0 then
-			-- the placeholder buffer goes away once the browser replaces it
 			vim.bo[buf].bufhidden = "wipe"
 			vim.bo[buf].buflisted = false
 			vim.schedule(function()
@@ -43,8 +39,7 @@ function M.read_cmd(args)
 
 	vim.bo[buf].buftype = "acwrite"
 	vim.bo[buf].swapfile = false
-	-- lockmarks: filling the buffer must not shift the line numbers of
-	-- quickfix entries already pointing into it
+	-- lockmarks keeps quickfix line numbers pointing at the right lines
 	local function fill()
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	end

@@ -1,7 +1,5 @@
--- "Project scope": only the containers of the project Neovim is working on.
--- The project is the git root of Neovim's cwd (or the cwd itself), and a
--- container belongs to it when its compose project was started from inside
--- it, or from a parent of it (nvim opened in a subdirectory of the project).
+-- Project scope: containers whose compose project lives in (or above) the
+-- git root of Neovim's cwd.
 
 local view_state = require("dockyard.ui.views.containers.state")
 
@@ -13,7 +11,6 @@ function M.enabled()
 	end
 	local option = require("dockyard.config").options.display.project_scope
 	if option == "auto" then
-		-- on by default when the project has its own compose file
 		return require("dockyard.commands.context").find_compose_file(M.root()) ~= nil
 	end
 	return option == true
@@ -21,7 +18,7 @@ end
 
 ---@return string
 function M.root()
-	-- the global cwd: the Dockyard tab may have its own
+	-- global cwd, the Dockyard tab may have a local one
 	local cwd = vim.fn.getcwd(-1)
 	return vim.fs.normalize(vim.fs.root(cwd, ".git") or cwd)
 end
@@ -41,7 +38,7 @@ function M.matches(c, root)
 	if contains(root, dir) then
 		return true
 	end
-	-- a project started from / or ~ would claim everything below it
+	-- a project in / or ~ would match everything
 	return dir ~= "/" and dir ~= vim.fs.normalize("~") and contains(dir, root)
 end
 

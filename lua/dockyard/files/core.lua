@@ -102,8 +102,7 @@ function M.read(container, path, cb)
 	end)
 end
 
----Write through `cat >` inside the container rather than `docker cp`, so an
----existing file keeps its owner and permissions.
+---Written with `cat >` rather than `docker cp` to keep owner and permissions.
 ---@param cb fun(res: { ok: boolean, error?: string })
 function M.write(container, path, lines, cb)
 	local data = table.concat(lines, "\n")
@@ -164,8 +163,7 @@ function M.upload(container, host_src, dst, cb)
 	end)
 end
 
----Read a file synchronously, for BufReadCmd where the buffer must be filled
----before Neovim positions the cursor (quickfix jumps, :e +N).
+---Synchronous read, for BufReadCmd.
 ---@return string[]|nil lines, string|nil error
 function M.read_sync(container, path)
 	local res = vim.system({ "docker", "exec", container, "cat", "--", path }, { text = true }):wait()
@@ -175,10 +173,9 @@ function M.read_sync(container, path)
 	return split_lines(res.stdout), nil
 end
 
----Search file contents; each hit is { path, lnum, text }.
 ---@param cb fun(res: { ok: boolean, hits?: { path: string, lnum: integer, text: string }[], error?: string })
 function M.grep(container, path, pattern, cb)
-	-- -I skips binary files; grep exits 1 when nothing matches, which is not an error
+	-- grep exits 1 when nothing matches
 	docker.run({ "exec", container, "sh", "-c", 'grep -rnI -- "$1" "$2"; [ $? -le 1 ]', "sh", pattern, path }, function(res)
 		if not res.ok then
 			return cb({ ok = false, error = res.error })
@@ -194,13 +191,13 @@ function M.grep(container, path, pattern, cb)
 	end)
 end
 
----Find paths by name. A pattern without wildcards matches as a substring.
+---A pattern without wildcards matches as a substring.
 ---@param cb fun(res: { ok: boolean, paths?: string[], error?: string })
 function M.find(container, path, pattern, cb)
 	if not pattern:find("[%*%?%[]") then
 		pattern = "*" .. pattern .. "*"
 	end
-	-- unreadable directories (/proc, ...) make find exit non-zero; keep what it found
+	-- find fails on unreadable dirs (/proc...), keep what it found
 	docker.run({ "exec", container, "sh", "-c", 'find "$1" -name "$2" 2>/dev/null; true', "sh", path, pattern }, function(res)
 		if not res.ok then
 			return cb({ ok = false, error = res.error })

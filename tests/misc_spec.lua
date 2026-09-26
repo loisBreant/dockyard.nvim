@@ -3,7 +3,7 @@ describe("lens.line", function()
 
 	it("records where each button sits, after the separators", function()
 		local line = lens.line():add("● up", "X"):add("▶ Run", "Y", { action = "run" }):add("↗ :80", "Z", { action = "open" })
-		-- "  ● up  ▶ Run  ↗ :80": buttons start after each two-space separator
+		-- "  ● up  ▶ Run  ↗ :80"
 		eq({ first = 8, last = 13, data = { action = "run" } }, line.buttons[1])
 		eq({ first = 15, last = 20, data = { action = "open" } }, line.buttons[2])
 		eq(20, line.width)

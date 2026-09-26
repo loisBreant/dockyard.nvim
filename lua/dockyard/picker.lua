@@ -1,5 +1,4 @@
--- Pick a container from anywhere and act on it, without opening the dashboard.
--- Backs both :DockyardPick (vim.ui.select) and the :Telescope dockyard extension.
+-- Container picker behind :Dockyard pick and :Telescope dockyard.
 
 local docker = require("dockyard.core.docker")
 local actions = require("dockyard.ui.actions.containers")
@@ -80,8 +79,7 @@ function M.available_actions(c)
 	end, M.actions)
 end
 
--- run after the picker has closed and restored its mode, so an action that
--- enters insert mode (the shell) keeps it
+-- after the picker closes, so the shell can stay in insert mode
 local function later(a, c)
 	vim.schedule(function()
 		a.run(c)
@@ -101,7 +99,6 @@ function M.run(c, key)
 	end
 end
 
----Ask which action to run on a container.
 ---@param c Container
 function M.choose_action(c)
 	vim.ui.select(M.available_actions(c), {
@@ -124,8 +121,7 @@ function M.format(c)
 	return ("%s %s  %s  %s%s"):format(mark, c.name, c.image, c.status_message or c.status, ports)
 end
 
----Containers, running first, restricted to the current project when the
----dashboard's project scope applies.
+---Running containers first, limited to the project scope when it is on.
 ---@param cb fun(items: Container[])
 function M.list(cb)
 	docker.list_containers(function(res)
@@ -143,7 +139,6 @@ function M.list(cb)
 	end)
 end
 
----:DockyardPick — vim.ui.select, then the action menu.
 function M.pick()
 	M.list(function(items)
 		if #items == 0 then

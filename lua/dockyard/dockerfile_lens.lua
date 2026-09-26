@@ -1,5 +1,4 @@
--- Clickable Build / Build & Run on a Dockerfile's final FROM line (the stage
--- that becomes the image), like the compose lenses.
+-- Build / Build & Run buttons on the last FROM line of Dockerfiles.
 
 local context = require("dockyard.commands.context")
 local builder = require("dockyard.commands.builder")
@@ -10,7 +9,6 @@ local M = {}
 
 local group = vim.api.nvim_create_augroup("DockyardDockerfileLens", { clear = true })
 
----1-based line of the last FROM instruction, or nil.
 ---@param buf integer
 ---@return integer|nil
 function M.final_from(buf)
@@ -39,7 +37,6 @@ local function render(buf)
 	lens.render(buf, lines)
 end
 
--- `docker run` in a terminal split, so the output and an interactive prompt stay visible
 local function run_image(tag)
 	vim.cmd("botright 15split")
 	local buf = vim.api.nvim_create_buf(false, true)
@@ -100,8 +97,6 @@ local function attach(buf)
 	render(buf)
 end
 
----Show the lens in `buf` if it is a Dockerfile and the lens is enabled.
----Called from plugin/dockyard.lua when a Dockerfile is opened.
 ---@param buf integer
 function M.maybe_attach(buf)
 	if not require("dockyard.config").options.compose_lens.enabled then

@@ -1,7 +1,4 @@
--- Clickable actions in compose files, like VSCode's "Run Service" code lenses.
--- `services:` gets project-wide actions, every service gets its state plus the
--- actions that make sense for it (Run when down; Restart / Stop / Logs / Shell
--- and its ports when up; Build when it has a build section).
+-- Run / Stop / Logs / ... buttons next to the services of compose files.
 
 local context = require("dockyard.commands.context")
 local builder = require("dockyard.commands.builder")
@@ -45,8 +42,7 @@ local STATE_HL = {
 	unhealthy = "DockyardStopped",
 }
 
--- `docker compose ps --format json` prints one object per line on recent
--- versions and a single array on older ones
+-- one JSON object per line, or a single array with older compose versions
 function M.parse_ps(output)
 	local out = {}
 	local function add(obj)
@@ -84,7 +80,6 @@ function M.parse_ps(output)
 	return out
 end
 
----Lens lines for a compose buffer, given the services' statuses.
 ---@param buf integer
 ---@param status table<string, DockyardServiceStatus>
 ---@return table<integer, DockyardLensLine>
@@ -162,7 +157,7 @@ function refresh(buf)
 		vim.schedule(function()
 			statuses[buf] = res.code == 0 and M.parse_ps(res.stdout or "") or {}
 			render(buf)
-			-- keep polling while a service is still settling, as long as the file is on screen
+			-- poll while a service is starting and the file is visible
 			for _, st in pairs(statuses[buf]) do
 				if st.health == "starting" or st.state == "restarting" then
 					vim.defer_fn(function()
@@ -180,7 +175,7 @@ end
 ---@param buf integer
 ---@param action string run|stop|restart|build|down|logs|shell|open
 ---@param service string|nil nil means every service
----@param port integer|nil for "open": the published port, else the service's first one
+---@param port integer|nil for "open"; defaults to the first published port
 function M.run_action(buf, action, service, port)
 	local file = vim.api.nvim_buf_get_name(buf)
 	local dir = vim.fn.fnamemodify(file, ":h")
@@ -267,8 +262,6 @@ local function attach(buf)
 	refresh(buf)
 end
 
----Show the lens in `buf` if it is a compose file and the lens is enabled.
----Called from plugin/dockyard.lua when a compose file is opened.
 ---@param buf integer
 function M.maybe_attach(buf)
 	if not require("dockyard.config").options.compose_lens.enabled then
