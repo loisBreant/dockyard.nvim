@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- `setup()` is optional: the plugin loads on its own and needs no lazy-loading rules
+- Commands are grouped under `:Dockyard` (`pick`, `files`, `logs`, `build`, `run`, `service`); the `:DockyardXxx`
+  commands still work
+- Highlight groups use `default = true`, so colour schemes can override them
+
+### Added
+
+- `<Plug>(dockyard-…)` mappings
+- `:checkhealth` reports invalid and unknown options
+- `make test`, `make typecheck`, `repro.lua` and a bug report template
+
+### Fixed
+
+- `icons.icon()` could return a table
+- A nil pid in the log stream when docker printed none
+- Failed docker calls returned results of the wrong shape
+
 ## 0.3.0
 
 First release of the loisBreant fork, on top of upstream 0.2.2.

@@ -60,7 +60,7 @@ describe("config", function()
 		eq({ "compose_lense", "display.view" }, config.unknown_keys({
 			display = { view = {} },
 			compose_lense = {},
-			loglens = { containers = { api = { anything = true } } },
+			loglens = { containers = { api = { anything = true } }, default_highlights = {} },
 		}))
 	end)
 end)

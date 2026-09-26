@@ -178,6 +178,9 @@ function M.validate(options)
 	return errors
 end
 
+-- options that exist but have no default value
+local NO_DEFAULT = { ["loglens.default_highlights"] = true }
+
 ---Options Dockyard does not know (typos...). loglens.containers is free-form.
 ---@param options table
 ---@return string[]
@@ -186,7 +189,7 @@ function M.unknown_keys(options)
 	local function walk(user, defaults, path)
 		for key, value in pairs(user) do
 			local p = path == "" and tostring(key) or (path .. "." .. tostring(key))
-			if defaults[key] == nil then
+			if defaults[key] == nil and not NO_DEFAULT[p] then
 				table.insert(unknown, p)
 			elseif type(value) == "table" and type(defaults[key]) == "table" and not vim.islist(defaults[key]) and p ~= "loglens.containers" then
 				walk(value, defaults[key], p)

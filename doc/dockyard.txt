@@ -43,24 +43,15 @@ Run `:checkhealth dockyard` to check the setup.
 ==============================================================================
 3. SETUP                                                      *dockyard-setup*
 
-With lazy.nvim: >lua
-  {
-    "loisBreant/dockyard.nvim",
-    cmd = { "Dockyard", "DockyardFloat", "DockyardRun", "DockyardBuild",
-            "DockyardFiles", "DockyardLogs", "DockyardPick" },
-    event = {
-      "BufReadPost *compose.yml,*compose.yaml,*compose.*.yml,*compose.*.yaml",
-      "BufReadPost Dockerfile,Dockerfile.*,*.Dockerfile,*.dockerfile",
-      "BufReadCmd dockyard://*",
-    },
-    config = function()
-      require("dockyard").setup({})
-    end,
-  }
+Install it and you are done; with lazy.nvim: >lua
+  { "loisBreant/dockyard.nvim" }
 <
-The events load the plugin as soon as a compose file, a Dockerfile or a
-container file (|dockyard-files|) is opened. See |dockyard-config| for the
-options of `setup()`.
+No `setup()` call and no lazy-loading rules are needed: the plugin only loads
+its code when a command is used, a compose file or a Dockerfile is opened, or
+a `dockyard://` buffer is edited.
+
+To change options, call `require("dockyard").setup({ ... })` (with lazy.nvim,
+`opts = { ... }`). See |dockyard-config|.
 
 ==============================================================================
 4. COMMANDS                                                *dockyard-commands*
@@ -68,45 +59,59 @@ options of `setup()`.
                                                                    *:Dockyard*
 :Dockyard [{strategy}]
     Open the dashboard. {strategy} is one of `current`, `split`, `vsplit`,
-    `tab`, `float`; without it `display.open_strategy` is used. The
-    |:vertical|, |:tab| and |:horizontal| modifiers are honoured.
+    `tab`, `float` (aliases: `edit`, `horizontal`, `vertical`, `panel`).
+    Without it, the modifier decides (|:tab|, |:vertical|, |:horizontal|,
+    |:botright|, |:topleft|), else `display.open_strategy`.
 
-                                                              *:DockyardFloat*
-:DockyardFloat
-    Open the dashboard in a floating window.
+:Dockyard pick                                              *:Dockyard-pick*
+    Pick a container, then an action. See |dockyard-picker|.
 
-                                                              *:DockyardBuild*
-:DockyardBuild
-    Build the image of the current Dockerfile, tagged after its directory.
-
-                                                                *:DockyardRun*
-:[range]DockyardRun
-    `docker compose up -d --force-recreate` for every service of the
-    current or nearby compose file, or only the services in [range].
-
-                                                            *:DockyardService*
-:DockyardService {action}
-    Act on the compose service under the cursor. {action} is one of `run`,
-    `stop`, `restart`, `build`, `logs`, `shell`, `open` (its first published
-    port in the browser).
-
-                                                               *:DockyardPick*
-:DockyardPick
-    Pick a container with |vim.ui.select()|, then an action. See
-    |dockyard-picker|.
-
-                                                              *:DockyardFiles*
-:DockyardFiles {container} [{path}]
+:Dockyard files {container} [{path}]                       *:Dockyard-files*
     Browse {container}'s filesystem at {path} (default `/`).
 
-                                                               *:DockyardLogs*
-:DockyardLogs {container}
+:Dockyard logs {container}                                  *:Dockyard-logs*
     Open LogLens for {container}.
+
+:Dockyard build                                            *:Dockyard-build*
+    Build the image of the current Dockerfile, tagged after its directory.
+
+:[range]Dockyard run                                         *:Dockyard-run*
+    `docker compose up -d --force-recreate` for every service of the current
+    or nearby compose file, or only the services in [range].
+
+:Dockyard service [{action}]                             *:Dockyard-service*
+    Act on the compose service under the cursor: `run` (default), `stop`,
+    `restart`, `build`, `logs`, `shell`, or `open` (its first published port
+    in the browser).
+
+                                                            *dockyard-aliases*
+The older commands still work: `:DockyardFloat` (`open float`),
+`:DockyardFull` (`open tab`), `:DockyardPick`, `:DockyardBuild`,
+`:DockyardRun`, `:DockyardService`, `:DockyardFiles`, `:DockyardLogs`.
+
+                                                           *dockyard-mappings*
+Dockyard creates no global mappings. Bind the <Plug> mappings you want
+(normal mode): >lua
+  vim.keymap.set("n", "<leader>dd", "<Plug>(dockyard-open)")
+<
+  *<Plug>(dockyard-open)*             |:Dockyard|
+  *<Plug>(dockyard-float)*            `:Dockyard float`
+  *<Plug>(dockyard-pick)*             |:Dockyard-pick|
+  *<Plug>(dockyard-build)*            |:Dockyard-build|
+  *<Plug>(dockyard-run)*              |:Dockyard-run| for every service
+  *<Plug>(dockyard-service-run)*      |:Dockyard-service| with that action,
+  *<Plug>(dockyard-service-stop)*     on the service under the cursor
+  *<Plug>(dockyard-service-restart)*
+  *<Plug>(dockyard-service-build)*
+  *<Plug>(dockyard-service-logs)*
+  *<Plug>(dockyard-service-shell)*
+  *<Plug>(dockyard-service-open)*
 
 ==============================================================================
 5. DASHBOARD                                              *dockyard-dashboard*
 
-`<Tab>` / `<S-Tab>` switch between the views listed in `display.views`.
+`<Tab>` / `<S-Tab>` (or `]` / `[`) switch between the views listed in
+`display.views`.
 Press `g?` in any Dockyard buffer for the bindings of the current view.
 
 Common keys:
@@ -162,16 +167,18 @@ and `services:` shows the project-wide ones:
 - `↗ :PORT`                `http://localhost:PORT` in the browser
 
 `⟳ Build` only appears for services with a `build:` section. The state
-follows the healthcheck and refreshes while a service is starting. Clicks
-elsewhere on the line behave as usual; |:DockyardService| offers the same
-actions from the keyboard.
+follows the healthcheck and refreshes while a service is starting. Actions
+save the file first. Clicks elsewhere on the line behave as usual;
+|:Dockyard-service| offers the same actions from the keyboard.
 
-Set `compose_lens.enabled = false` to turn these actions off.
+`compose_lens.enabled = false` turns these actions off, and the Dockerfile
+ones too.
 
 ==============================================================================
 8. DOCKERFILE ACTIONS                                    *dockyard-dockerfile*
 
-A `Dockerfile` (also `Dockerfile.*`, `*.Dockerfile`) gets two buttons on its
+A `Dockerfile` (also `Dockerfile.*`, `*.Dockerfile`, `*.dockerfile`) gets
+two buttons on its
 last `FROM` line, the stage that becomes the image:
 
 - `⟳ Build {tag}`   `docker build`, tagged after the directory
@@ -188,12 +195,13 @@ last `FROM` line, the stage that becomes the image:
   `<C-o>` open port       `<C-s>` start / stop    `<C-r>` restart
   `<C-a>` every container, ignoring the project scope
 
-Without Telescope, |:DockyardPick| offers the same through |vim.ui.select()|.
+|:Dockyard-pick| offers the same through |vim.ui.select()|, with or without
+Telescope.
 
 ==============================================================================
 10. FILE BROWSER                                              *dockyard-files*
 
-|:DockyardFiles|, or `f` on a container, lists a directory of the container:
+|:Dockyard-files|, or `f` on a container, lists a directory of the container:
 
   `<CR>` `l`   open file / enter directory
   `-` `h`      parent directory
@@ -217,7 +225,7 @@ opens the browser.
 ==============================================================================
 11. LOGLENS                                                 *dockyard-loglens*
 
-`L` on a container (or |:DockyardLogs|) streams its logs:
+`L` on a container (or |:Dockyard-logs|) streams its logs:
 
   `f`   follow on / off       `r`   raw / parsed
   `/`   filter                `c`   clear the filter
@@ -230,7 +238,8 @@ Log sources, parsers and highlight rules are configured per container in
 ==============================================================================
 12. CONFIGURATION                                            *dockyard-config*
 
-Defaults: >lua
+Options go through `require("dockyard").setup()`, which is optional and
+only merges them over these defaults: >lua
   require("dockyard").setup({
     display = {
       -- "containers", "compose", "images", "networks", "volumes"
@@ -265,6 +274,9 @@ Defaults: >lua
   })
 <
 A keymap set to `false` is disabled; a list adds aliases.
+`loglens.containers` and `loglens.default_highlights` configure log sources
+and highlight rules; see the README for their format. |:checkhealth| reports
+options with a wrong type and unknown ones.
 
 ==============================================================================
 13. HIGHLIGHTS                                           *dockyard-highlights*
@@ -279,7 +291,7 @@ The action buttons use:
   `DockyardRunning`, `DockyardStopped`, `DockyardPending`,
   `DockyardRestarting`   service states
 
-`require("dockyard").setup()` sets every group; override them after calling
-it (and again on |ColorScheme| if your colour scheme clears them).
+The groups are defined with `default = true`, so a colour scheme or your own
+|:highlight| commands take precedence. They are set again after |ColorScheme|.
 
  vim:tw=78:ts=8:ft=help:norl:
