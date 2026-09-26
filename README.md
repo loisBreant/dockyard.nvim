@@ -9,9 +9,12 @@ Interactive Docker dashboard directly in your editor. It lets you view and manag
 > This is a fork of [emrearmagan/dockyard.nvim](https://github.com/emrearmagan/dockyard.nvim) that stays in sync
 > with upstream and adds:
 >
-> - **Compose actions**: clickable `▶ Run` / `■ Stop` / `≡ Logs` / `Shell` buttons next to every service in compose files, like VSCode
+> - **Compose & Dockerfile actions**: clickable `▶ Run` / `■ Stop` / `≡ Logs` / `Shell` / `⟳ Build` / `↗ :port` buttons
+>   next to every compose service and `⟳ Build` / `▶ Build & Run` on a Dockerfile's `FROM`, like VSCode
 > - **Container file browser**: search by name or content, edit, copy/move, download and upload files
-> - **Project scope** (`P`): only show the containers of the project Neovim is working on
+> - **Project scope** (`P`): only the containers of the project Neovim is working on, on by default in compose projects
+> - **Container picker**: `:Telescope dockyard` / `:DockyardPick` to reach logs, a shell or files without the dashboard
+> - **Open ports** in the browser from compose files or the dashboard (`o`)
 > - **Container filter** (`F` / `C`), open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
 >   ANSI colors in logs, from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim)
 
@@ -48,7 +51,9 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - [x] Run Docker build commands from Dockyard
 - [x] Filter containers by name, status, image, ports or compose project
 - [x] Show only the containers of the current project
-- [x] Run, stop, restart services and open their logs or a shell straight from compose files
+- [x] Run, stop, restart, build services and open their logs, a shell or their ports straight from compose files
+- [x] Build and run a Dockerfile from its `FROM` line
+- [x] Pick a container from anywhere (Telescope or `vim.ui.select`)
 - [x] Navigate and search the file tree inside a container
 - [x] Copy, modify, and manage files inside a container
 
@@ -58,6 +63,7 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - Docker CLI available in `$PATH`
 - [`akinsho/toggleterm.nvim`](https://github.com/akinsho/toggleterm.nvim) (optional: `T` opens a native terminal without it)
 - [`m00qek/baleia.nvim`](https://github.com/m00qek/baleia.nvim) (optional, for ANSI colors in logs — e.g. `[0;32m  OK  [0m`)
+- [`nvim-telescope/telescope.nvim`](https://github.com/nvim-telescope/telescope.nvim) (optional, for `:Telescope dockyard`)
 
 ## Installation
 
@@ -69,10 +75,11 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
   dependencies = {
     "m00qek/baleia.nvim", -- optional, for ANSI colors in logs
   },
-  cmd = { "Dockyard", "DockyardFloat", "DockyardRun", "DockyardBuild", "DockyardFiles", "DockyardLogs" },
+  cmd = { "Dockyard", "DockyardFloat", "DockyardRun", "DockyardBuild", "DockyardFiles", "DockyardLogs", "DockyardPick" },
   event = {
-    -- compose actions show up as soon as a compose file opens
+    -- compose / Dockerfile actions show up as soon as such a file opens
     "BufReadPost *compose.yml,*compose.yaml,*compose.*.yml,*compose.*.yaml",
+    "BufReadPost Dockerfile,Dockerfile.*,*.Dockerfile,*.dockerfile",
     -- open container files with :edit dockyard://<container>/<path>
     "BufReadCmd dockyard://*",
   },
@@ -100,10 +107,11 @@ require("dockyard").setup({
     views = { "containers", "images", "networks", "volumes" },
     -- how :Dockyard opens without an argument: "current" | "split" | "vsplit" | "tab" | "float"
     open_strategy = "tab",
-    -- start with only the current project's containers shown (toggle with P)
-    project_scope = false,
+    -- only the current project's containers (toggle with P): true | false |
+    -- "auto" = when the project has a compose file
+    project_scope = "auto",
   },
-  -- clickable actions next to services in compose files
+  -- clickable actions in compose files and Dockerfiles
   compose_lens = { enabled = true },
   loglens = {
     containers = {
@@ -236,7 +244,8 @@ it when its Docker Compose project was started from inside it — or from a pare
 subdirectory. Containers started with a plain `docker run` have no project and are hidden in this mode.
 
 It combines with the filter (`F`): the header shows both, e.g. `Project: ~/my-app (3/12)` and `Filter: db (1/3)`.
-Set `display.project_scope = true` to start in this mode.
+By default (`display.project_scope = "auto"`) Dockyard opens in this mode when the project root has a compose file;
+set it to `true` or `false` to always start scoped or unscoped.
 
 ## Compose actions
 
@@ -244,19 +253,42 @@ Open a `docker-compose.yml` / `compose.yaml` (or a `compose.*.yml` variant) and 
 at the end of its line; `services:` gets actions for the whole project:
 
 ```yaml
-services:   ▶▶ Run all  ■ Stop all
-  api:   ● running  ↻ Restart  ■ Stop  ≡ Logs   Shell
-    image: my/api
+services:   ▶▶ Run all  ■ Stop all  ⟳ Build all  ▼ Down
+  api:   ● healthy  ↻ Restart  ■ Stop  ≡ Logs   Shell  ↗ :8080  ⟳ Build
+    build: .
+    ports: ["8080:80"]
   db:   ○ exited  ▶ Run
     image: postgres:16
 ```
 
-Click a button to run it (`docker compose up -d`, `stop`, `restart`, LogLens, a shell). From the keyboard,
-`:DockyardService {run|stop|restart|logs|shell}` acts on the service under the cursor — map it if you use it often:
+Click a button to run it: `docker compose up -d`, `stop`, `restart`, `build`, `down`, LogLens, a shell, or
+`http://localhost:<port>` in the browser. The state follows the healthcheck (`starting` → `healthy` / `unhealthy`) and
+refreshes by itself while a service is starting. From the keyboard, `:DockyardService {run|stop|restart|build|logs|shell|open}`
+acts on the service under the cursor — map it if you use it often:
 
 ```lua
 vim.keymap.set("n", "<leader>dr", "<cmd>DockyardService run<cr>", { desc = "Run compose service" })
 ```
+
+## Dockerfile actions
+
+A `Dockerfile` (or `Dockerfile.*`, `*.Dockerfile`) gets two buttons on its last `FROM` line — the stage that becomes the
+image:
+
+```dockerfile
+FROM node:22 AS build
+FROM nginx:alpine   ⟳ Build my-app  ▶ Build & Run
+```
+
+`⟳ Build` runs `docker build` and tags the image after the directory; `▶ Build & Run` then starts it in a terminal split
+with `docker run --rm -it -P`, so its exposed ports are published.
+
+## Container picker
+
+`:Telescope dockyard` fuzzy-finds containers (running first, with a `docker inspect` preview). `<CR>` opens the action
+menu; direct keys: `<C-l>` logs, `<C-t>` shell, `<C-f>` files, `<C-o>` open port, `<C-s>` start/stop, `<C-r>` restart,
+`<C-a>` list every container instead of the current project's. Without Telescope, `:DockyardPick` does the same through
+`vim.ui.select`.
 
 ## File browser
 
@@ -284,7 +316,8 @@ file's owner and permissions. You can also `:edit dockyard://<container>/<path>`
 - `:DockyardFloat` - open floating UI
 - `:DockyardBuild` - build a Docker image from the nearest `Dockerfile`. Tags the image after the parent directory name.
 - `:DockyardRun` - runs Docker Compose services (`docker compose up -d --force-recreate`). Supports visual selection.
-- `:DockyardService {run|stop|restart|logs|shell}` - act on the compose service under the cursor
+- `:DockyardService {run|stop|restart|build|logs|shell|open}` - act on the compose service under the cursor
+- `:DockyardPick` - pick a container and act on it (`:Telescope dockyard` with Telescope)
 - `:DockyardFiles <container> [path]` - browse a container's filesystem at `path` (defaults to `/`).
 - `:DockyardLogs <container>` - open LogLens for a container
 
@@ -315,6 +348,7 @@ require("dockyard").setup({
       open_terminal = "T",
       open_logs = "L",
       open_files = "f",
+      open_port = "o", -- open a published port in the browser
       filter = "F", -- filter containers (e.g. "running" to show only running)
       clear_filter = "C",
       toggle_project_scope = "P", -- only this project's containers / all

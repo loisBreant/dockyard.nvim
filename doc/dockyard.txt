@@ -1,0 +1,285 @@
+*dockyard.txt*  Docker dashboard, compose and Dockerfile actions in Neovim
+
+                                                                    *dockyard*
+
+==============================================================================
+CONTENTS                                                   *dockyard-contents*
+
+  1. Introduction ............................... |dockyard-introduction|
+  2. Requirements ............................... |dockyard-requirements|
+  3. Setup ...................................... |dockyard-setup|
+  4. Commands ................................... |dockyard-commands|
+  5. Dashboard .................................. |dockyard-dashboard|
+  6. Project scope and filter ................... |dockyard-scope|
+  7. Compose actions ............................ |dockyard-compose|
+  8. Dockerfile actions ......................... |dockyard-dockerfile|
+  9. Container picker ........................... |dockyard-picker|
+ 10. File browser ............................... |dockyard-files|
+ 11. LogLens .................................... |dockyard-loglens|
+ 12. Configuration .............................. |dockyard-config|
+ 13. Highlights ................................. |dockyard-highlights|
+
+==============================================================================
+1. INTRODUCTION                                        *dockyard-introduction*
+
+Dockyard is a Docker workspace inside Neovim: a dashboard of containers,
+images, networks and volumes, live logs (LogLens), shells and a file browser
+inside containers, and clickable actions in compose files and Dockerfiles.
+
+This is the loisBreant/dockyard.nvim fork of emrearmagan/dockyard.nvim.
+
+==============================================================================
+2. REQUIREMENTS                                        *dockyard-requirements*
+
+- Neovim 0.10 or later
+- the `docker` CLI in `$PATH` (`docker compose` or `docker-compose` for the
+  compose actions)
+- optional: toggleterm.nvim for shells (a native terminal is used without
+  it), baleia.nvim for ANSI colours in logs, telescope.nvim for
+  `:Telescope dockyard`
+
+Run `:checkhealth dockyard` to check the setup.
+
+==============================================================================
+3. SETUP                                                      *dockyard-setup*
+
+With lazy.nvim: >lua
+  {
+    "loisBreant/dockyard.nvim",
+    cmd = { "Dockyard", "DockyardFloat", "DockyardRun", "DockyardBuild",
+            "DockyardFiles", "DockyardLogs", "DockyardPick" },
+    event = {
+      "BufReadPost *compose.yml,*compose.yaml,*compose.*.yml,*compose.*.yaml",
+      "BufReadPost Dockerfile,Dockerfile.*,*.Dockerfile,*.dockerfile",
+      "BufReadCmd dockyard://*",
+    },
+    config = function()
+      require("dockyard").setup({})
+    end,
+  }
+<
+The events load the plugin as soon as a compose file, a Dockerfile or a
+container file (|dockyard-files|) is opened. See |dockyard-config| for the
+options of `setup()`.
+
+==============================================================================
+4. COMMANDS                                                *dockyard-commands*
+
+                                                                   *:Dockyard*
+:Dockyard [{strategy}]
+    Open the dashboard. {strategy} is one of `current`, `split`, `vsplit`,
+    `tab`, `float`; without it `display.open_strategy` is used. The
+    |:vertical|, |:tab| and |:horizontal| modifiers are honoured.
+
+                                                              *:DockyardFloat*
+:DockyardFloat
+    Open the dashboard in a floating window.
+
+                                                              *:DockyardBuild*
+:DockyardBuild
+    Build the image of the current Dockerfile, tagged after its directory.
+
+                                                                *:DockyardRun*
+:[range]DockyardRun
+    `docker compose up -d --force-recreate` for every service of the
+    current or nearby compose file, or only the services in [range].
+
+                                                            *:DockyardService*
+:DockyardService {action}
+    Act on the compose service under the cursor. {action} is one of `run`,
+    `stop`, `restart`, `build`, `logs`, `shell`, `open` (its first published
+    port in the browser).
+
+                                                               *:DockyardPick*
+:DockyardPick
+    Pick a container with |vim.ui.select()|, then an action. See
+    |dockyard-picker|.
+
+                                                              *:DockyardFiles*
+:DockyardFiles {container} [{path}]
+    Browse {container}'s filesystem at {path} (default `/`).
+
+                                                               *:DockyardLogs*
+:DockyardLogs {container}
+    Open LogLens for {container}.
+
+==============================================================================
+5. DASHBOARD                                              *dockyard-dashboard*
+
+`<Tab>` / `<S-Tab>` switch between the views listed in `display.views`.
+Press `g?` in any Dockyard buffer for the bindings of the current view.
+
+Common keys:
+  `g?`      help                 `R`       refresh
+  `q`       close                `<CR>`    expand / collapse
+  `K`       inspect popup        `p`       detail panel
+
+Containers view:
+  `s`       start / stop         `x`       stop
+  `r`       restart              `d`       remove
+  `T`       shell                `L`       logs (|dockyard-loglens|)
+  `f`       file browser         `o`       open a published port
+  `F`       filter               `C`       clear the filter
+  `P`       project scope on / off (|dockyard-scope|)
+
+Images view: `d` remove, `P` prune. Networks and volumes views: `d` remove.
+
+Every key can be changed or disabled in `keymaps` (|dockyard-config|).
+
+==============================================================================
+6. PROJECT SCOPE AND FILTER                                   *dockyard-scope*
+
+`P` shows only the containers of the project Neovim works on. The project is
+the git root of Neovim's working directory, or the directory itself. A
+container belongs to it when its Docker Compose project was started from
+inside it, or from a parent directory (Neovim opened in a subdirectory).
+Containers started with a plain `docker run` have no project.
+
+With `display.project_scope = "auto"` (the default) the dashboard opens in
+this mode when the project root has a compose file. `true` and `false` force
+a mode. The picker (|dockyard-picker|) follows the same scope.
+
+                                                             *dockyard-filter*
+`F` asks for a text and keeps the containers whose name, image, status,
+ports or compose project contain it, ignoring case. `C` clears it. Scope and
+filter combine; the header shows both with their counts.
+
+==============================================================================
+7. COMPOSE ACTIONS                                          *dockyard-compose*
+
+In `docker-compose.yml`, `compose.yaml` and their `compose.*.yml` variants,
+each service shows its state and clickable actions at the end of its line,
+and `services:` shows the project-wide ones:
+
+  services:   ▶▶ Run all  ■ Stop all  ⟳ Build all  ▼ Down
+    api:   ● healthy  ↻ Restart  ■ Stop  ≡ Logs   Shell  ↗ :8080  ⟳ Build
+    db:   ○ exited  ▶ Run
+
+- `▶ Run` / `▶▶ Run all`   `docker compose up -d --force-recreate`
+- `■ Stop`, `↻ Restart`, `⟳ Build`, `▼ Down`   the matching compose command
+- `≡ Logs`                 LogLens on the service's container
+- ` Shell`                a shell in it
+- `↗ :PORT`                `http://localhost:PORT` in the browser
+
+`⟳ Build` only appears for services with a `build:` section. The state
+follows the healthcheck and refreshes while a service is starting. Clicks
+elsewhere on the line behave as usual; |:DockyardService| offers the same
+actions from the keyboard.
+
+Set `compose_lens.enabled = false` to turn these actions off.
+
+==============================================================================
+8. DOCKERFILE ACTIONS                                    *dockyard-dockerfile*
+
+A `Dockerfile` (also `Dockerfile.*`, `*.Dockerfile`) gets two buttons on its
+last `FROM` line, the stage that becomes the image:
+
+- `⟳ Build {tag}`   `docker build`, tagged after the directory
+- `▶ Build & Run`   build, then `docker run --rm -it -P {tag}` in a terminal
+                    split, publishing the exposed ports
+
+==============================================================================
+9. CONTAINER PICKER                                          *dockyard-picker*
+
+`:Telescope dockyard` fuzzy-finds containers, running ones first, with a
+`docker inspect` preview. `<CR>` opens the action menu. Direct keys:
+
+  `<C-l>` logs            `<C-t>` shell           `<C-f>` files
+  `<C-o>` open port       `<C-s>` start / stop    `<C-r>` restart
+  `<C-a>` every container, ignoring the project scope
+
+Without Telescope, |:DockyardPick| offers the same through |vim.ui.select()|.
+
+==============================================================================
+10. FILE BROWSER                                              *dockyard-files*
+
+|:DockyardFiles|, or `f` on a container, lists a directory of the container:
+
+  `<CR>` `l`   open file / enter directory
+  `-` `h`      parent directory
+  `s`          find files by name (glob or plain text) into the |quickfix|
+  `S`          search file contents into the |quickfix|
+  `a`          create a file, or a directory when the name ends with `/`
+  `r`          rename              `d`   delete
+  `c` / `x`    copy / cut, then `p` pastes into the current directory
+  `D`          download to the host
+  `U`          upload from the host
+  `y`          yank the path       `gh`  toggle hidden files
+  `R`          refresh             `q`   close
+  `g?`         help
+
+                                                            *dockyard-buffers*
+Container files open as `dockyard://{container}/{path}` buffers. `:w` writes
+them back into the container and keeps the file's owner and permissions.
+`:edit dockyard://{container}/{path}` works from anywhere; a directory path
+opens the browser.
+
+==============================================================================
+11. LOGLENS                                                 *dockyard-loglens*
+
+`L` on a container (or |:DockyardLogs|) streams its logs:
+
+  `f`   follow on / off       `r`   raw / parsed
+  `/`   filter                `c`   clear the filter
+  `<Tab>` / `<S-Tab>`  switch source
+  `<CR>` `K`   entry details  `q`   close
+
+Log sources, parsers and highlight rules are configured per container in
+`loglens.containers`; see the README for the full format.
+
+==============================================================================
+12. CONFIGURATION                                            *dockyard-config*
+
+Defaults: >lua
+  require("dockyard").setup({
+    display = {
+      -- "containers", "compose", "images", "networks", "volumes"
+      views = { "containers", "images", "networks", "volumes" },
+      open_strategy = "tab",   -- current|split|vsplit|tab|float
+      project_scope = "auto",  -- true | false | "auto"
+    },
+    compose_lens = { enabled = true },
+    loglens = { containers = {} },
+    keymaps = {
+      ui = {
+        help = "g?", close = "q", refresh = "R",
+        next_view = { "<Tab>", "]" }, prev_view = { "<S-Tab>", "[" },
+        toggle_node = "<CR>", open_details = "K", open_panel = "p",
+      },
+      containers = {
+        toggle_start_stop = "s", stop = "x", restart = "r", remove = "d",
+        open_terminal = "T", open_logs = "L", open_files = "f",
+        open_port = "o", filter = "F", clear_filter = "C",
+        toggle_project_scope = "P",
+      },
+      images = { remove = "d", prune = "P" },
+      networks = { remove = "d" },
+      volumes = { remove = "d" },
+      loglens = {
+        close = "q", toggle_follow = "f", toggle_raw = "r",
+        filter = "/", clear_filter = "c",
+        next_source = "<Tab>", prev_source = "<S-Tab>",
+        open_detail = { "<CR>", "K" }, help = "g?",
+      },
+    },
+  })
+<
+A keymap set to `false` is disabled; a list adds aliases.
+
+==============================================================================
+13. HIGHLIGHTS                                           *dockyard-highlights*
+
+The action buttons use:
+
+  `DockyardLensRun`      run buttons
+  `DockyardLensStop`     stop / down buttons
+  `DockyardLensAction`   other buttons
+  `DockyardLensMuted`    separators
+  `DockyardPorts`        port buttons
+  `DockyardRunning`, `DockyardStopped`, `DockyardPending`,
+  `DockyardRestarting`   service states
+
+`require("dockyard").setup()` sets every group; override them after calling
+it (and again on |ColorScheme| if your colour scheme clears them).
+
+ vim:tw=78:ts=8:ft=help:norl:
