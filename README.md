@@ -379,14 +379,13 @@ require("dockyard").setup({
 
 ## Development
 
-Tests need nothing but Neovim:
-
 ```sh
-nvim --headless --clean -l tests/run.lua                 # every spec
-nvim --headless --clean -l tests/run.lua tests/context_spec.lua
+make test        # needs only Neovim
+make typecheck   # needs lua-language-server
 ```
 
-CI runs them on Neovim 0.10, stable and nightly.
+A single spec: `nvim --headless --clean -l tests/run.lua tests/context_spec.lua`. CI runs the tests on Neovim 0.10,
+stable and nightly, and the type check. To report a bug, reproduce it with `nvim -u repro.lua` first.
 
 ## Credits
 

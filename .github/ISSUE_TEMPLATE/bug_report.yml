@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead (error messages included).
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Ideally with the minimal config: `nvim -u repro.lua` (see repro.lua at the root of the repository),
+        so the issue does not come from another plugin or option.
+      placeholder: |
+        1. nvim -u repro.lua docker-compose.yml
+        2. click ▶ Run on a service
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: ":checkhealth dockyard"
+      render: text
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Neovim version (nvim --version)
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Docker version (docker --version, docker compose version)
+    validations:
+      required: true
