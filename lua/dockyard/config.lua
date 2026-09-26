@@ -58,6 +58,7 @@
 --- @class DisplayConfig
 --- @field views? DockyardView[] Ordered list of views shown in the navbar
 --- @field open_strategy? DockyardOpenStrategy Default open strategy for :Dockyard
+--- @field project_scope? boolean Start with only the current project's containers shown (toggle with P)
 
 --- @class ComposeLensConfig
 --- @field enabled? boolean Clickable Run/Stop/Logs/Shell actions next to services in compose files
@@ -75,6 +76,7 @@ M.options = {
 	display = {
 		views = { "containers", "images", "networks", "volumes" },
 		open_strategy = "tab",
+		project_scope = false,
 	},
 	compose_lens = {
 		enabled = true,
@@ -103,6 +105,7 @@ M.options = {
 			open_files = "f",
 			filter = "F",
 			clear_filter = "C",
+			toggle_project_scope = "P",
 		},
 		images = {
 			remove = "d",

@@ -22,6 +22,7 @@ local M = {}
 ---@field open_files? DockyardKeymapValue
 ---@field filter? DockyardKeymapValue
 ---@field clear_filter? DockyardKeymapValue
+---@field toggle_project_scope? DockyardKeymapValue
 
 ---@class DockyardImagesKeymaps
 ---@field remove? DockyardKeymapValue
@@ -196,6 +197,7 @@ local CONTAINERS_IDS = {
 	"containers.open_files",
 	"containers.filter",
 	"containers.clear_filter",
+	"containers.toggle_project_scope",
 }
 
 local IMAGES_IDS = {

@@ -344,7 +344,9 @@ function M.render()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local raw_items = state.containers.get_items() or {}
+	local scope = require("dockyard.ui.views.containers.scope")
+	local all_items = state.containers.get_items() or {}
+	local raw_items = scope.apply(all_items)
 	local items = filter_items(raw_items)
 
 	ui_utils.append_block(lines, spans, header.render(ui_state.mode, width))
@@ -360,6 +362,27 @@ function M.render()
 		})
 	)
 	table.insert(lines, "")
+
+	local function key_label(action, fallback)
+		local key = require("dockyard.core.keymaps").key(action) or fallback
+		return type(key) == "table" and (key[1] or fallback) or key
+	end
+
+	-- Project scope indicator (when active)
+	if scope.enabled() then
+		local scope_line = string.format(
+			" Project: %s  (%d/%d)  [press %s to show all]",
+			vim.fn.fnamemodify(scope.root(), ":~"),
+			#raw_items,
+			#all_items,
+			key_label("containers.toggle_project_scope", "P")
+		)
+		table.insert(lines, scope_line)
+		table.insert(spans, { line = #lines - 1, start_col = 0, end_col = #scope_line, hl_group = "DockyardMuted" })
+		if not (view_state.filter and view_state.filter ~= "") then
+			table.insert(lines, "")
+		end
+	end
 
 	-- Filter indicator (when active)
 	if view_state.filter and view_state.filter ~= "" then

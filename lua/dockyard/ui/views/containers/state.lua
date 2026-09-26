@@ -4,6 +4,7 @@
 ---@field poll_spinner SpinnerInstance|nil
 ---@field expanded table<string, boolean>
 ---@field filter string|nil Filter text (case-insensitive substring match)
+---@field project_scope boolean|nil Only show containers of the current project; nil = use config default
 
 ---@class DockyardContainersViewState
 local M = {

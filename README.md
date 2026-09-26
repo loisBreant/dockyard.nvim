@@ -11,6 +11,7 @@ Interactive Docker dashboard directly in your editor. It lets you view and manag
 >
 > - **Compose actions**: clickable `▶ Run` / `■ Stop` / `≡ Logs` / `Shell` buttons next to every service in compose files, like VSCode
 > - **Container file browser**: search by name or content, edit, copy/move, download and upload files
+> - **Project scope** (`P`): only show the containers of the project Neovim is working on
 > - **Container filter** (`F` / `C`), open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
 >   ANSI colors in logs, from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim)
 
@@ -46,6 +47,7 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - [x] Stream and inspect logs
 - [x] Run Docker build commands from Dockyard
 - [x] Filter containers by name, status, image, ports or compose project
+- [x] Show only the containers of the current project
 - [x] Run, stop, restart services and open their logs or a shell straight from compose files
 - [x] Navigate and search the file tree inside a container
 - [x] Copy, modify, and manage files inside a container
@@ -98,6 +100,8 @@ require("dockyard").setup({
     views = { "containers", "images", "networks", "volumes" },
     -- how :Dockyard opens without an argument: "current" | "split" | "vsplit" | "tab" | "float"
     open_strategy = "tab",
+    -- start with only the current project's containers shown (toggle with P)
+    project_scope = false,
   },
   -- clickable actions next to services in compose files
   compose_lens = { enabled = true },
@@ -224,6 +228,16 @@ Each rule supports:
 > [!NOTE]
 > Dockyard comes with some default highlights, but you can override or extend them with your own rules.
 
+## Project scope
+
+Press `P` in the containers view to only show the containers of the project you are working on, and again to show
+them all. The project is the git root of Neovim's working directory (or the directory itself); a container belongs to
+it when its Docker Compose project was started from inside it — or from a parent of it, when Neovim is opened in a
+subdirectory. Containers started with a plain `docker run` have no project and are hidden in this mode.
+
+It combines with the filter (`F`): the header shows both, e.g. `Project: ~/my-app (3/12)` and `Filter: db (1/3)`.
+Set `display.project_scope = true` to start in this mode.
+
 ## Compose actions
 
 Open a `docker-compose.yml` / `compose.yaml` (or a `compose.*.yml` variant) and every service gets its state and actions
@@ -303,6 +317,7 @@ require("dockyard").setup({
       open_files = "f",
       filter = "F", -- filter containers (e.g. "running" to show only running)
       clear_filter = "C",
+      toggle_project_scope = "P", -- only this project's containers / all
     },
     images = {
       remove = "d",

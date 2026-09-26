@@ -180,6 +180,16 @@ function M.setup(buf, notify, hooks)
 			index = 11,
 		})
 	)
+	resolver.push(
+		items,
+		resolver.item("containers.toggle_project_scope", {
+			desc = "Only this project's containers / all",
+			callback = function()
+				controller.toggle_project_scope()
+			end,
+			index = 12,
+		})
+	)
 
 	resolver.push(
 		items,
@@ -213,6 +223,7 @@ function M.teardown(buf)
 	resolver.push(items, resolver.removal("containers.open_files"))
 	resolver.push(items, resolver.removal("containers.filter"))
 	resolver.push(items, resolver.removal("containers.clear_filter"))
+	resolver.push(items, resolver.removal("containers.toggle_project_scope"))
 	help.remove(GROUP, items, { buffer = buf })
 	controller.on_teardown()
 end

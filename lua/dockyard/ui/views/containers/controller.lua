@@ -157,6 +157,14 @@ function M.clear_filter()
 	renderer.render()
 end
 
+function M.toggle_project_scope()
+	view_state.project_scope = not require("dockyard.ui.views.containers.scope").enabled()
+	renderer.render()
+	if is_containers_view_active() then
+		navigation.first()
+	end
+end
+
 function M.prompt_filter()
 	vim.ui.input({ prompt = "Filter containers: ", default = view_state.filter or "" }, function(input)
 		if input == nil then

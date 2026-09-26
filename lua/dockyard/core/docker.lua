@@ -86,6 +86,7 @@ end
 --- @field labels string
 --- @field compose_project string|nil
 --- @field compose_service string|nil
+--- @field compose_dir string|nil Directory the compose project was started from
 
 ---Extract a label value from docker ps label string (key=val,key=val).
 ---@param labels string|nil
@@ -151,6 +152,7 @@ function M.list_containers(callback)
 		'  "networks": {{json .Networks}},',
 		'  "created": {{json .CreatedAt}},',
 		'  "created_since": {{json .RunningFor}},',
+		'  "compose_dir": {{json (.Label "com.docker.compose.project.working_dir")}},',
 		'  "labels": {{json .Labels}}',
 		"}",
 	}, "")
