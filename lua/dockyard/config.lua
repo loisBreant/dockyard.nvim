@@ -103,6 +103,7 @@ M.options = {
 			open_terminal = "T",
 			open_logs = "L",
 			open_files = "f",
+			open_port = "o",
 			filter = "F",
 			clear_filter = "C",
 			toggle_project_scope = "P",
@@ -241,7 +242,7 @@ local function create_commands()
 		end
 	end, { desc = "Run Docker Compose services", range = true })
 
-	local service_actions = { "run", "stop", "restart", "logs", "shell" }
+	local service_actions = { "run", "stop", "restart", "logs", "shell", "open" }
 	vim.api.nvim_create_user_command("DockyardService", function(cmd_opts)
 		local action = cmd_opts.fargs[1] or "run"
 		if not vim.tbl_contains(service_actions, action) then
@@ -255,7 +256,7 @@ local function create_commands()
 		end
 		require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, service)
 	end, {
-		desc = "Run an action on the compose service under the cursor",
+		desc = "Act on the compose service under the cursor (run|stop|restart|logs|shell|open)",
 		nargs = "?",
 		complete = function(arg_lead)
 			return vim.tbl_filter(function(a)

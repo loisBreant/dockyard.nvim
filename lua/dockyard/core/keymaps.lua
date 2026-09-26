@@ -20,6 +20,7 @@ local M = {}
 ---@field open_terminal? DockyardKeymapValue
 ---@field open_logs? DockyardKeymapValue
 ---@field open_files? DockyardKeymapValue
+---@field open_port? DockyardKeymapValue
 ---@field filter? DockyardKeymapValue
 ---@field clear_filter? DockyardKeymapValue
 ---@field toggle_project_scope? DockyardKeymapValue
@@ -195,6 +196,7 @@ local CONTAINERS_IDS = {
 	"containers.open_terminal",
 	"containers.open_logs",
 	"containers.open_files",
+	"containers.open_port",
 	"containers.filter",
 	"containers.clear_filter",
 	"containers.toggle_project_scope",

@@ -16,11 +16,12 @@ local group = vim.api.nvim_create_augroup("DockyardComposeLens", { clear = true 
 ---@field last integer display column after the label
 ---@field action string
 ---@field service string|nil
+---@field port integer|nil
 
 ---@type table<integer, table<integer, DockyardLensButton[]>> buf -> 1-based lnum -> buttons
 local buttons = {}
 
----@type table<integer, table<string, { state: string, name: string, health: string }>> buf -> service -> status
+---@type table<integer, table<string, { state: string, name: string, health: string, ports: integer[] }>> buf -> service -> status
 local statuses = {}
 
 local SEP = "  "
@@ -47,10 +48,20 @@ local function parse_ps(output)
 	local out = {}
 	local function add(obj)
 		if type(obj) == "table" and obj.Service then
+			local ports, seen = {}, {}
+			for _, pub in ipairs(type(obj.Publishers) == "table" and obj.Publishers or {}) do
+				local port = tonumber(pub.PublishedPort)
+				if port and port > 0 and not seen[port] and (pub.Protocol or "tcp") == "tcp" then
+					seen[port] = true
+					table.insert(ports, port)
+				end
+			end
+			table.sort(ports)
 			out[obj.Service] = {
 				state = (obj.State or ""):lower(),
 				name = obj.Name or "",
 				health = (obj.Health or ""):lower(),
+				ports = ports,
 			}
 		end
 	end
@@ -74,13 +85,13 @@ end
 ---@param list DockyardLensButton[]
 ---@param width integer current display width of the lens
 ---@return integer width
-local function push(chunks, list, width, label, hl, action, service)
+local function push(chunks, list, width, label, hl, action, service, port)
 	table.insert(chunks, { SEP, "DockyardLensMuted" })
 	width = width + #SEP
 	local w = vim.fn.strdisplaywidth(label)
 	table.insert(chunks, { label, hl })
 	if action then
-		table.insert(list, { first = width, last = width + w, action = action, service = service })
+		table.insert(list, { first = width, last = width + w, action = action, service = service, port = port })
 	end
 	return width + w
 end
@@ -118,7 +129,10 @@ local function render(buf)
 			width = push(chunks, list, width, "↻ Restart", "DockyardLensAction", "restart", service.name)
 			width = push(chunks, list, width, "■ Stop", "DockyardLensStop", "stop", service.name)
 			width = push(chunks, list, width, "≡ Logs", "DockyardLensAction", "logs", service.name)
-			push(chunks, list, width, " Shell", "DockyardLensAction", "shell", service.name)
+			width = push(chunks, list, width, " Shell", "DockyardLensAction", "shell", service.name)
+			for _, port in ipairs(s.ports or {}) do
+				width = push(chunks, list, width, "↗ :" .. port, "DockyardPorts", "open", service.name, port)
+			end
 		else
 			if s and s.state ~= "" then
 				width = push(chunks, list, width, "○ " .. s.state, "DockyardStopped")
@@ -154,9 +168,10 @@ local function refresh(buf)
 end
 
 ---@param buf integer
----@param action string run|stop|restart|logs|shell
+---@param action string run|stop|restart|logs|shell|open
 ---@param service string|nil nil means every service
-function M.run_action(buf, action, service)
+---@param port integer|nil for "open": the published port, else the service's first one
+function M.run_action(buf, action, service, port)
 	local file = vim.api.nvim_buf_get_name(buf)
 	local dir = vim.fn.fnamemodify(file, ":h")
 	if vim.bo[buf].modified then
@@ -181,6 +196,14 @@ function M.run_action(buf, action, service)
 		executor.run(args, { cwd = dir, title = "compose stop " .. label, on_exit = on_exit })
 	elseif action == "restart" then
 		executor.run(compose_cmd(file, "restart", service), { cwd = dir, title = "compose restart " .. label, on_exit = on_exit })
+	elseif action == "open" then
+		local s = (statuses[buf] or {})[service]
+		port = port or (s and s.ports and s.ports[1])
+		if not port then
+			vim.notify("Dockyard: " .. tostring(service) .. " publishes no port", vim.log.levels.WARN)
+			return
+		end
+		vim.ui.open("http://localhost:" .. port)
 	elseif action == "logs" or action == "shell" then
 		local s = (statuses[buf] or {})[service]
 		if not is_up(s) or s.name == "" then
@@ -233,7 +256,7 @@ local function attach(buf)
 			return "<LeftMouse>"
 		end
 		vim.schedule(function()
-			M.run_action(buf, b.action, b.service)
+			M.run_action(buf, b.action, b.service, b.port)
 		end)
 		return ""
 	end, { buffer = buf, expr = true, desc = "Dockyard: compose lens click" })

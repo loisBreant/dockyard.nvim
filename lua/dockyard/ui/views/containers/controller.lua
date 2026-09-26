@@ -125,6 +125,35 @@ function M.open_terminal(item)
 	})
 end
 
+---Host ports published by a container, from its formatted ports ("8080→80, 3000").
+---@param item Container
+---@return integer[]
+function M.published_ports(item)
+	local ports = {}
+	for host in tostring(item.ports or ""):gmatch("(%d+)%-?%d*→") do
+		table.insert(ports, tonumber(host))
+	end
+	return ports
+end
+
+---@param item Container
+function M.open_port(item)
+	local ports = M.published_ports(item or {})
+	if #ports == 0 then
+		vim.notify("Dockyard: no published port", vim.log.levels.WARN)
+		return
+	end
+	local function open(port)
+		if port then
+			vim.ui.open("http://localhost:" .. port)
+		end
+	end
+	if #ports == 1 then
+		return open(ports[1])
+	end
+	vim.ui.select(ports, { prompt = "Open port" }, open)
+end
+
 ---@param item Container
 function M.open_logs(item)
 	require("dockyard.ui.loglens").open(item)
