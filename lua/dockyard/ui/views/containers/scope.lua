@@ -11,7 +11,12 @@ function M.enabled()
 	if view_state.project_scope ~= nil then
 		return view_state.project_scope
 	end
-	return require("dockyard.config").options.display.project_scope == true
+	local option = require("dockyard.config").options.display.project_scope
+	if option == "auto" then
+		-- on by default when the project has its own compose file
+		return require("dockyard.commands.context").find_compose_file(M.root()) ~= nil
+	end
+	return option == true
 end
 
 ---@return string
