@@ -1,30 +1,25 @@
 -- Clickable actions in compose files, like VSCode's "Run Service" code lenses.
--- `services:` gets "Run all", every service gets its state plus the actions
--- that make sense for it (Run when down; Restart / Stop / Logs / Shell when up).
+-- `services:` gets project-wide actions, every service gets its state plus the
+-- actions that make sense for it (Run when down; Restart / Stop / Logs / Shell
+-- and its ports when up; Build when it has a build section).
 
 local context = require("dockyard.commands.context")
 local builder = require("dockyard.commands.builder")
 local executor = require("dockyard.commands.executor")
+local lens = require("dockyard.lens")
 
 local M = {}
 
-local ns = vim.api.nvim_create_namespace("dockyard.compose_lens")
 local group = vim.api.nvim_create_augroup("DockyardComposeLens", { clear = true })
 
----@class DockyardLensButton
----@field first integer display column where the label starts, 0-based from the lens start
----@field last integer display column after the label
----@field action string
----@field service string|nil
----@field port integer|nil
+---@class DockyardServiceStatus
+---@field state string running|exited|created|...
+---@field name string container name
+---@field health string healthy|unhealthy|starting|""
+---@field ports integer[] published tcp ports
 
----@type table<integer, table<integer, DockyardLensButton[]>> buf -> 1-based lnum -> buttons
-local buttons = {}
-
----@type table<integer, table<string, { state: string, name: string, health: string, ports: integer[] }>> buf -> service -> status
+---@type table<integer, table<string, DockyardServiceStatus>> buf -> service -> status
 local statuses = {}
-
-local SEP = "  "
 
 local function compose_base()
 	if vim.fn.executable("docker") == 1 then
@@ -42,9 +37,17 @@ local function is_up(status)
 	return status ~= nil and (status.state == "running" or status.state == "restarting")
 end
 
+local STATE_HL = {
+	healthy = "DockyardRunning",
+	running = "DockyardRunning",
+	starting = "DockyardPending",
+	restarting = "DockyardRestarting",
+	unhealthy = "DockyardStopped",
+}
+
 -- `docker compose ps --format json` prints one object per line on recent
 -- versions and a single array on older ones
-local function parse_ps(output)
+function M.parse_ps(output)
 	local out = {}
 	local function add(obj)
 		if type(obj) == "table" and obj.Service then
@@ -81,78 +84,74 @@ local function parse_ps(output)
 	return out
 end
 
----@param chunks table virt_text being built
----@param list DockyardLensButton[]
----@param width integer current display width of the lens
----@return integer width
-local function push(chunks, list, width, label, hl, action, service, port)
-	table.insert(chunks, { SEP, "DockyardLensMuted" })
-	width = width + #SEP
-	local w = vim.fn.strdisplaywidth(label)
-	table.insert(chunks, { label, hl })
-	if action then
-		table.insert(list, { first = width, last = width + w, action = action, service = service, port = port })
-	end
-	return width + w
-end
-
-local function render(buf)
-	if not vim.api.nvim_buf_is_valid(buf) then
-		return
-	end
-	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-	buttons[buf] = {}
-
+---Lens lines for a compose buffer, given the services' statuses.
+---@param buf integer
+---@param status table<string, DockyardServiceStatus>
+---@return table<integer, DockyardLensLine>
+function M.build_lines(buf, status)
+	local lines = {}
 	local block = context.compose_services(buf)
-	if not block.lnum then
-		return
-	end
-	local status = statuses[buf] or {}
-
-	local function place(lnum, chunks, list)
-		buttons[buf][lnum] = list
-		vim.api.nvim_buf_set_extmark(buf, ns, lnum - 1, 0, {
-			virt_text = chunks,
-			virt_text_pos = "eol",
-			hl_mode = "combine",
-		})
+	if not block.lnum or #block.services == 0 then
+		return lines
 	end
 
-	local any_up = false
+	local any_up, any_created, any_build = false, false, false
 	for _, service in ipairs(block.services) do
 		local s = status[service.name]
-		local chunks, list, width = {}, {}, 0
+		local line = lens.line()
+		local name = service.name
+		if s and s.state ~= "" then
+			any_created = true
+		end
+		any_build = any_build or service.has_build
+
 		if is_up(s) then
 			any_up = true
 			local state = s.health ~= "" and s.health or s.state
-			width = push(chunks, list, width, "● " .. state, "DockyardRunning")
-			width = push(chunks, list, width, "↻ Restart", "DockyardLensAction", "restart", service.name)
-			width = push(chunks, list, width, "■ Stop", "DockyardLensStop", "stop", service.name)
-			width = push(chunks, list, width, "≡ Logs", "DockyardLensAction", "logs", service.name)
-			width = push(chunks, list, width, " Shell", "DockyardLensAction", "shell", service.name)
+			line:add("● " .. state, STATE_HL[state] or "DockyardRunning")
+			line:add("↻ Restart", "DockyardLensAction", { action = "restart", service = name })
+			line:add("■ Stop", "DockyardLensStop", { action = "stop", service = name })
+			line:add("≡ Logs", "DockyardLensAction", { action = "logs", service = name })
+			line:add(" Shell", "DockyardLensAction", { action = "shell", service = name })
 			for _, port in ipairs(s.ports or {}) do
-				width = push(chunks, list, width, "↗ :" .. port, "DockyardPorts", "open", service.name, port)
+				line:add("↗ :" .. port, "DockyardPorts", { action = "open", service = name, port = port })
 			end
 		else
 			if s and s.state ~= "" then
-				width = push(chunks, list, width, "○ " .. s.state, "DockyardStopped")
+				line:add("○ " .. s.state, "DockyardStopped")
 			end
-			push(chunks, list, width, "▶ Run", "DockyardLensRun", "run", service.name)
+			line:add("▶ Run", "DockyardLensRun", { action = "run", service = name })
 		end
-		place(service.lnum, chunks, list)
+		if service.has_build then
+			line:add("⟳ Build", "DockyardLensAction", { action = "build", service = name })
+		end
+		lines[service.lnum] = line
 	end
 
-	if #block.services > 0 then
-		local chunks, list = {}, {}
-		local width = push(chunks, list, 0, "▶▶ Run all", "DockyardLensRun", "run")
-		if any_up then
-			push(chunks, list, width, "■ Stop all", "DockyardLensStop", "stop")
-		end
-		place(block.lnum, chunks, list)
+	local top = lens.line()
+	top:add("▶▶ Run all", "DockyardLensRun", { action = "run" })
+	if any_up then
+		top:add("■ Stop all", "DockyardLensStop", { action = "stop" })
+	end
+	if any_build then
+		top:add("⟳ Build all", "DockyardLensAction", { action = "build" })
+	end
+	if any_created then
+		top:add("▼ Down", "DockyardLensStop", { action = "down" })
+	end
+	lines[block.lnum] = top
+	return lines
+end
+
+local function render(buf)
+	if vim.api.nvim_buf_is_valid(buf) then
+		lens.render(buf, M.build_lines(buf, statuses[buf] or {}))
 	end
 end
 
-local function refresh(buf)
+local refresh
+
+function refresh(buf)
 	local file = vim.api.nvim_buf_get_name(buf)
 	render(buf)
 	if file == "" or vim.fn.filereadable(file) == 0 then
@@ -161,14 +160,25 @@ local function refresh(buf)
 	local cmd = compose_cmd(file, "ps", "-a", "--format", "json")
 	pcall(vim.system, cmd, { text = true, cwd = vim.fn.fnamemodify(file, ":h") }, function(res)
 		vim.schedule(function()
-			statuses[buf] = res.code == 0 and parse_ps(res.stdout or "") or {}
+			statuses[buf] = res.code == 0 and M.parse_ps(res.stdout or "") or {}
 			render(buf)
+			-- keep polling while a service is still settling, as long as the file is on screen
+			for _, st in pairs(statuses[buf]) do
+				if st.health == "starting" or st.state == "restarting" then
+					vim.defer_fn(function()
+						if vim.api.nvim_buf_is_valid(buf) and #vim.fn.win_findbuf(buf) > 0 then
+							refresh(buf)
+						end
+					end, 3000)
+					break
+				end
+			end
 		end)
 	end)
 end
 
 ---@param buf integer
----@param action string run|stop|restart|logs|shell|open
+---@param action string run|stop|restart|build|down|logs|shell|open
 ---@param service string|nil nil means every service
 ---@param port integer|nil for "open": the published port, else the service's first one
 function M.run_action(buf, action, service, port)
@@ -184,18 +194,17 @@ function M.run_action(buf, action, service, port)
 		refresh(buf)
 	end
 	local label = service or "all services"
+	local function compose(verb)
+		executor.run(compose_cmd(file, verb, service), { cwd = dir, title = "compose " .. verb .. " " .. label, on_exit = on_exit })
+	end
 
 	if action == "run" then
 		local args = builder.run_cmd({ type = "compose", file = file, dir = dir }, service)
 		executor.run(args, { cwd = dir, title = "compose up " .. label, on_exit = on_exit })
-	elseif action == "stop" then
-		local args = compose_cmd(file, "stop")
-		if service then
-			table.insert(args, service)
-		end
-		executor.run(args, { cwd = dir, title = "compose stop " .. label, on_exit = on_exit })
-	elseif action == "restart" then
-		executor.run(compose_cmd(file, "restart", service), { cwd = dir, title = "compose restart " .. label, on_exit = on_exit })
+	elseif action == "stop" or action == "restart" or action == "build" then
+		compose(action)
+	elseif action == "down" then
+		executor.run(compose_cmd(file, "down"), { cwd = dir, title = "compose down", on_exit = on_exit })
 	elseif action == "open" then
 		local s = (statuses[buf] or {})[service]
 		port = port or (s and s.ports and s.ports[1])
@@ -218,31 +227,6 @@ function M.run_action(buf, action, service, port)
 	end
 end
 
--- the button under the mouse, if the click landed on a lens
-local function button_at_mouse(buf)
-	local pos = vim.fn.getmousepos()
-	if pos.winid == 0 or vim.api.nvim_win_get_buf(pos.winid) ~= buf then
-		return nil
-	end
-	local list = (buttons[buf] or {})[pos.line]
-	if not list or #list == 0 then
-		return nil
-	end
-	local info = vim.fn.getwininfo(pos.winid)[1]
-	local leftcol = vim.api.nvim_win_call(pos.winid, function()
-		return vim.fn.winsaveview().leftcol
-	end)
-	local text = vim.api.nvim_buf_get_lines(buf, pos.line - 1, pos.line, false)[1] or ""
-	-- eol virtual text starts one cell after the end of the line
-	local offset = pos.wincol - info.textoff + leftcol - 1 - (vim.fn.strdisplaywidth(text) + 1)
-	for _, b in ipairs(list) do
-		if offset >= b.first and offset < b.last then
-			return b
-		end
-	end
-	return nil
-end
-
 local function attach(buf)
 	if vim.b[buf].dockyard_lens then
 		refresh(buf)
@@ -250,16 +234,9 @@ local function attach(buf)
 	end
 	vim.b[buf].dockyard_lens = true
 
-	vim.keymap.set("n", "<LeftMouse>", function()
-		local b = button_at_mouse(buf)
-		if not b then
-			return "<LeftMouse>"
-		end
-		vim.schedule(function()
-			M.run_action(buf, b.action, b.service, b.port)
-		end)
-		return ""
-	end, { buffer = buf, expr = true, desc = "Dockyard: compose lens click" })
+	lens.attach(buf, function(data)
+		M.run_action(buf, data.action, data.service, data.port)
+	end)
 
 	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
 		group = group,
@@ -279,7 +256,6 @@ local function attach(buf)
 		group = group,
 		buffer = buf,
 		callback = function()
-			buttons[buf] = nil
 			statuses[buf] = nil
 		end,
 	})

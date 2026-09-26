@@ -1,0 +1,118 @@
+-- Clickable Build / Build & Run on a Dockerfile's final FROM line (the stage
+-- that becomes the image), like the compose lenses.
+
+local context = require("dockyard.commands.context")
+local builder = require("dockyard.commands.builder")
+local executor = require("dockyard.commands.executor")
+local lens = require("dockyard.lens")
+
+local M = {}
+
+local group = vim.api.nvim_create_augroup("DockyardDockerfileLens", { clear = true })
+
+---1-based line of the last FROM instruction, or nil.
+---@param buf integer
+---@return integer|nil
+function M.final_from(buf)
+	local found = nil
+	for i, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+		if line:match("^%s*[Ff][Rr][Oo][Mm]%s") then
+			found = i
+		end
+	end
+	return found
+end
+
+local function render(buf)
+	if not vim.api.nvim_buf_is_valid(buf) then
+		return
+	end
+	local lines = {}
+	local lnum = M.final_from(buf)
+	if lnum then
+		local file = vim.api.nvim_buf_get_name(buf)
+		local tag = builder.image_tag(vim.fn.fnamemodify(file, ":h"))
+		lines[lnum] = lens.line()
+			:add("⟳ Build " .. tag, "DockyardLensAction", { action = "build" })
+			:add("▶ Build & Run", "DockyardLensRun", { action = "build_run" })
+	end
+	lens.render(buf, lines)
+end
+
+-- `docker run` in a terminal split, so the output and an interactive prompt stay visible
+local function run_image(tag)
+	vim.cmd("botright 15split")
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_win_set_buf(0, buf)
+	vim.fn.jobstart({ "docker", "run", "--rm", "-it", "-P", tag }, { term = true })
+	vim.cmd.startinsert()
+end
+
+---@param buf integer
+---@param action "build"|"build_run"
+function M.run_action(buf, action)
+	if vim.bo[buf].modified then
+		vim.api.nvim_buf_call(buf, function()
+			vim.cmd("silent! write")
+		end)
+	end
+	local file = vim.api.nvim_buf_get_name(buf)
+	local dir = vim.fn.fnamemodify(file, ":h")
+	local args, err = builder.build_cmd({ type = "dockerfile", file = file, dir = dir })
+	if not args then
+		vim.notify("Dockyard: " .. tostring(err), vim.log.levels.ERROR)
+		return
+	end
+	local tag = builder.image_tag(dir)
+	executor.run(args, {
+		cwd = dir,
+		title = "docker build " .. tag,
+		on_exit = function(ok)
+			if ok and action == "build_run" then
+				run_image(tag)
+			end
+		end,
+	})
+end
+
+local function attach(buf)
+	if vim.b[buf].dockyard_lens then
+		return
+	end
+	vim.b[buf].dockyard_lens = true
+
+	lens.attach(buf, function(data)
+		M.run_action(buf, data.action)
+	end)
+	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "BufEnter" }, {
+		group = group,
+		buffer = buf,
+		callback = function()
+			render(buf)
+		end,
+	})
+	render(buf)
+end
+
+local function maybe_attach(buf)
+	local name = vim.api.nvim_buf_get_name(buf)
+	if name ~= "" and vim.bo[buf].buftype == "" and context.is_dockerfile(name) then
+		attach(buf)
+	end
+end
+
+function M.setup()
+	vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile", "BufFilePost" }, {
+		group = group,
+		callback = function(args)
+			maybe_attach(args.buf)
+		end,
+	})
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_loaded(buf) then
+			maybe_attach(buf)
+		end
+	end
+end
+
+return M

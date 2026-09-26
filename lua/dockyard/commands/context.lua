@@ -36,7 +36,8 @@ function M.is_dockerfile(file)
 	if basename:match("^Dockerfile%.") then
 		return true
 	end
-	return false
+	-- api.Dockerfile, worker.dockerfile
+	return basename:lower():match("%.dockerfile$") ~= nil
 end
 
 ---@param file string
@@ -55,6 +56,7 @@ end
 ---@class DockyardComposeService
 ---@field name string
 ---@field lnum integer 1-based line of the service key
+---@field has_build boolean the service defines a `build:` section
 
 ---Locate the `services:` block and each service key in a compose buffer.
 ---Service keys are the first indentation level under `services:`, whatever its width.
@@ -64,6 +66,7 @@ function M.compose_services(buf)
 	local lines = vim.api.nvim_buf_get_lines(buf or 0, 0, -1, false)
 	local result = { lnum = nil, services = {} }
 	local indent = nil
+	local child_indent = nil
 
 	for i, line in ipairs(lines) do
 		if result.lnum == nil then
@@ -79,7 +82,14 @@ function M.compose_services(buf)
 			local lead, name = line:match("^(%s+)([%w_.%-]+):%s*")
 			if lead and (indent == nil or #lead == indent) then
 				indent = indent or #lead
-				table.insert(result.services, { name = name, lnum = i })
+				child_indent = nil
+				table.insert(result.services, { name = name, lnum = i, has_build = false })
+			elseif lead and #lead > indent and #result.services > 0 then
+				-- keys of the service itself sit at its first child indentation
+				child_indent = child_indent or #lead
+				if #lead == child_indent and name == "build" then
+					result.services[#result.services].has_build = true
+				end
 			end
 		end
 	end

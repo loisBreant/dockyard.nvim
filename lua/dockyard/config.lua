@@ -61,7 +61,7 @@
 --- @field project_scope? boolean Start with only the current project's containers shown (toggle with P)
 
 --- @class ComposeLensConfig
---- @field enabled? boolean Clickable Run/Stop/Logs/Shell actions next to services in compose files
+--- @field enabled? boolean Clickable actions next to services in compose files and on a Dockerfile's FROM line
 
 --- @class DockyardConfig
 --- @field display? DisplayConfig Display settings
@@ -242,7 +242,7 @@ local function create_commands()
 		end
 	end, { desc = "Run Docker Compose services", range = true })
 
-	local service_actions = { "run", "stop", "restart", "logs", "shell", "open" }
+	local service_actions = { "run", "stop", "restart", "build", "logs", "shell", "open" }
 	vim.api.nvim_create_user_command("DockyardService", function(cmd_opts)
 		local action = cmd_opts.fargs[1] or "run"
 		if not vim.tbl_contains(service_actions, action) then
@@ -256,7 +256,7 @@ local function create_commands()
 		end
 		require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, service)
 	end, {
-		desc = "Act on the compose service under the cursor (run|stop|restart|logs|shell|open)",
+		desc = "Act on the compose service under the cursor (run|stop|restart|build|logs|shell|open)",
 		nargs = "?",
 		complete = function(arg_lead)
 			return vim.tbl_filter(function(a)
@@ -339,6 +339,7 @@ function M.setup(opts)
 	require("dockyard.files").setup()
 	if M.options.compose_lens.enabled then
 		require("dockyard.compose_lens").setup()
+		require("dockyard.dockerfile_lens").setup()
 	end
 end
 
