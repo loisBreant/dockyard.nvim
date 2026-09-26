@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+
+- Opening ports in the browser did nothing under WSL (xdg-open without a browser); it now goes through Windows, and
+  other failures are reported
+- Dockerfile buttons moved to the first `FROM` line, where they are visible when the file opens
+
 ## 0.4.0
 
 ### Changed

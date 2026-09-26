@@ -121,4 +121,30 @@ function M.apply_win_config(win, mode)
 	end
 end
 
+---Command that opens `url` in the browser. Under WSL, xdg-open usually has no
+---browser to talk to, so go through Windows instead.
+---@return string[]|nil
+function M.open_cmd(url)
+	if vim.fn.has("wsl") == 1 then
+		for _, opener in ipairs({ "wslview", "explorer.exe" }) do
+			if vim.fn.executable(opener) == 1 then
+				return { opener, url }
+			end
+		end
+	end
+	return nil
+end
+
+function M.open_url(url)
+	local cmd = M.open_cmd(url)
+	if cmd then
+		vim.system(cmd, { detach = true })
+		return
+	end
+	local _, err = vim.ui.open(url)
+	if err then
+		vim.notify("Dockyard: " .. err, vim.log.levels.ERROR)
+	end
+end
+
 return M

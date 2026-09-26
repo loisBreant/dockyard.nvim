@@ -10,15 +10,28 @@ describe("lens.line", function()
 	end)
 end)
 
-describe("dockerfile final_from", function()
+describe("dockerfile first_from", function()
 	local dockerfile_lens = require("dockyard.dockerfile_lens")
 
-	it("points at the last FROM", function()
-		eq(3, dockerfile_lens.final_from(buffer({ "FROM node AS build", "RUN make", "from nginx", "COPY . ." })))
+	it("points at the first FROM", function()
+		eq(2, dockerfile_lens.first_from(buffer({ "# syntax=docker/dockerfile:1", "FROM node AS build", "from nginx" })))
 	end)
 
 	it("returns nil without FROM", function()
-		eq(nil, dockerfile_lens.final_from(buffer({ "# nothing", "RUN true" })))
+		eq(nil, dockerfile_lens.first_from(buffer({ "# nothing", "RUN true" })))
+	end)
+end)
+
+describe("open_cmd", function()
+	local utils = require("dockyard.ui.utils")
+
+	it("goes through Windows under WSL, else leaves it to vim.ui.open", function()
+		local cmd = utils.open_cmd("http://localhost:1")
+		if vim.fn.has("wsl") == 1 then
+			truthy(cmd and (cmd[1] == "wslview" or cmd[1] == "explorer.exe"), vim.inspect(cmd))
+		else
+			eq(nil, cmd)
+		end
 	end)
 end)
 

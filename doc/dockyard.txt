@@ -178,8 +178,7 @@ ones too.
 8. DOCKERFILE ACTIONS                                    *dockyard-dockerfile*
 
 A `Dockerfile` (also `Dockerfile.*`, `*.Dockerfile`, `*.dockerfile`) gets
-two buttons on its
-last `FROM` line, the stage that becomes the image:
+two buttons on its first `FROM` line:
 
 - `⟳ Build {tag}`   `docker build`, tagged after the directory
 - `▶ Build & Run`   build, then `docker run --rm -it -P {tag}` in a terminal

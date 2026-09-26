@@ -145,7 +145,7 @@ function M.open_port(item)
 	end
 	local function open(port)
 		if port then
-			vim.ui.open("http://localhost:" .. port)
+			require("dockyard.ui.utils").open_url("http://localhost:" .. port)
 		end
 	end
 	if #ports == 1 then

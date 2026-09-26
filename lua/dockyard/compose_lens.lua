@@ -211,7 +211,7 @@ function M.run_action(buf, action, service, port)
 			vim.notify("Dockyard: " .. tostring(service) .. " publishes no port", vim.log.levels.WARN)
 			return
 		end
-		vim.ui.open("http://localhost:" .. port)
+		require("dockyard.ui.utils").open_url("http://localhost:" .. port)
 	elseif action == "logs" or action == "shell" then
 		local s = (statuses[buf] or {})[service]
 		if not is_up(s) or s.name == "" then

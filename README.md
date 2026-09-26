@@ -260,12 +260,11 @@ them.
 
 ## Dockerfile actions
 
-A `Dockerfile` (or `Dockerfile.*`, `*.Dockerfile`, `*.dockerfile`) gets two buttons on its last `FROM` line — the stage that becomes the
-image:
+A `Dockerfile` (or `Dockerfile.*`, `*.Dockerfile`, `*.dockerfile`) gets two buttons on its first `FROM` line:
 
 ```dockerfile
-FROM node:22 AS build
-FROM nginx:alpine   ⟳ Build my-app  ▶ Build & Run
+FROM node:22 AS build   ⟳ Build my-app  ▶ Build & Run
+FROM nginx:alpine
 ```
 
 `⟳ Build` runs `docker build` and tags the image after the Dockerfile's directory (`:Dockyard build` does the same from the

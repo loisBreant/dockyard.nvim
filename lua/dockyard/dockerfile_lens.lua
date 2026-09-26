@@ -1,4 +1,4 @@
--- Build / Build & Run buttons on the last FROM line of Dockerfiles.
+-- Build / Build & Run buttons on the first FROM line of Dockerfiles.
 
 local context = require("dockyard.commands.context")
 local builder = require("dockyard.commands.builder")
@@ -11,14 +11,12 @@ local group = vim.api.nvim_create_augroup("DockyardDockerfileLens", { clear = tr
 
 ---@param buf integer
 ---@return integer|nil
-function M.final_from(buf)
-	local found = nil
+function M.first_from(buf)
 	for i, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
 		if line:match("^%s*[Ff][Rr][Oo][Mm]%s") then
-			found = i
+			return i
 		end
 	end
-	return found
 end
 
 local function render(buf)
@@ -26,7 +24,7 @@ local function render(buf)
 		return
 	end
 	local lines = {}
-	local lnum = M.final_from(buf)
+	local lnum = M.first_from(buf)
 	if lnum then
 		local file = vim.api.nvim_buf_get_name(buf)
 		local tag = builder.image_tag(vim.fn.fnamemodify(file, ":h"))
