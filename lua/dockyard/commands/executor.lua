@@ -94,7 +94,7 @@ local function split_lines(chunk)
 end
 
 ---@param args string[] Command and arguments
----@param opts { cwd?: string, title?: string }|nil
+---@param opts { cwd?: string, title?: string, on_exit?: fun(ok: boolean) }|nil
 function M.run(args, opts)
 	opts = opts or {}
 	if not args or #args == 0 then
@@ -175,11 +175,17 @@ function M.run(args, opts)
 			local success = result.code == 0
 			local message = "Failed (exit " .. tostring(result.code) .. ")."
 			finish(success, message)
+			if opts.on_exit then
+				opts.on_exit(success)
+			end
 		end)
 	end)
 
 	if not ok then
 		finish(false, "Failed: " .. tostring(err))
+		if opts.on_exit then
+			opts.on_exit(false)
+		end
 	end
 end
 

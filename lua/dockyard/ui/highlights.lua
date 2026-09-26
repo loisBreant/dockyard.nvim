@@ -54,6 +54,11 @@ local groups = {
 	DockyardDim = { fg = palette.muted },
 	DockyardNormal = { link = "Normal" },
 
+	DockyardLensRun = { fg = palette.green, bold = true },
+	DockyardLensStop = { fg = palette.red },
+	DockyardLensAction = { fg = palette.blue },
+	DockyardLensMuted = { fg = palette.muted },
+
 	DockyardChartCPU = { fg = palette.blue },
 	DockyardChartMemory = { fg = palette.green },
 }

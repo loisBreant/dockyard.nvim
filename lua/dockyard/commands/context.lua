@@ -48,7 +48,46 @@ function M.is_compose_file(file)
 			return true
 		end
 	end
-	return false
+	-- variants such as docker-compose.dev.yml or compose.override.yaml
+	return basename:match("^docker%-compose%..+%.ya?ml$") ~= nil or basename:match("^compose%..+%.ya?ml$") ~= nil
+end
+
+---@class DockyardComposeService
+---@field name string
+---@field lnum integer 1-based line of the service key
+
+---Locate the `services:` block and each service key in a compose buffer.
+---Service keys are the first indentation level under `services:`, whatever its width.
+---@param buf? integer defaults to the current buffer
+---@return { lnum: integer|nil, end_lnum: integer|nil, services: DockyardComposeService[] }
+function M.compose_services(buf)
+	local lines = vim.api.nvim_buf_get_lines(buf or 0, 0, -1, false)
+	local result = { lnum = nil, services = {} }
+	local indent = nil
+
+	for i, line in ipairs(lines) do
+		if result.lnum == nil then
+			if line:match("^services:%s*$") or line:match("^services:%s+#") then
+				result.lnum = i
+			end
+		elseif not line:match("^%s*$") and not line:match("^%s*#") then
+			if line:match("^%S") then
+				-- next top-level key closes the block
+				result.end_lnum = i - 1
+				break
+			end
+			local lead, name = line:match("^(%s+)([%w_.%-]+):%s*")
+			if lead and (indent == nil or #lead == indent) then
+				indent = indent or #lead
+				table.insert(result.services, { name = name, lnum = i })
+			end
+		end
+	end
+
+	if result.lnum and not result.end_lnum then
+		result.end_lnum = #lines
+	end
+	return result
 end
 
 ---Find a compose file in the given directory only.
@@ -75,42 +114,17 @@ function M.service_at_cursor()
 	end
 
 	local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
-	local buf_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-
-	-- Walk backwards from cursor to find the nearest service key.
-	-- Services are top-level keys under "services:" with no indentation beyond 2 spaces.
-	local in_services = false
+	local block = M.compose_services(0)
+	if not block.end_lnum or cursor_line > block.end_lnum then
+		return nil
+	end
 	local last_service = nil
-
-	for i = 1, #buf_lines do
-		local line = buf_lines[i]
-
-		if line:match("^services:") then
-			in_services = true
-			last_service = nil
-		elseif in_services then
-			-- A new top-level key ends the services block
-			if line:match("^%S") and not line:match("^%s*#") then
-				if i <= cursor_line then
-					in_services = false
-					last_service = nil
-				else
-					break
-				end
-			end
-
-			-- Service name: exactly 2 spaces indent, then a word followed by colon
-			local service = line:match("^  ([%w_%-]+):%s*$") or line:match("^  ([%w_%-]+):%s+")
-			if service and i <= cursor_line then
-				last_service = service
-			end
-		end
-
-		if i == cursor_line then
+	for _, service in ipairs(block.services) do
+		if service.lnum > cursor_line then
 			break
 		end
+		last_service = service.name
 	end
-
 	return last_service
 end
 
@@ -124,25 +138,12 @@ function M.services_in_range(line1, line2)
 		return {}
 	end
 
-	local buf_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 	local services = {}
-	local in_services = false
-
-	for i, line in ipairs(buf_lines) do
-		if line:match("^services:") then
-			in_services = true
-		elseif in_services then
-			if line:match("^%S") and not line:match("^%s*#") then
-				in_services = false
-			else
-				local service = line:match("^  ([%w_%-]+):%s*$") or line:match("^  ([%w_%-]+):%s+")
-				if service and i >= line1 and i <= line2 then
-					table.insert(services, service)
-				end
-			end
+	for _, service in ipairs(M.compose_services(0).services) do
+		if service.lnum >= line1 and service.lnum <= line2 then
+			table.insert(services, service.name)
 		end
 	end
-
 	return services
 end
 

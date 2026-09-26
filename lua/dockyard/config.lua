@@ -59,8 +59,12 @@
 --- @field views? DockyardView[] Ordered list of views shown in the navbar
 --- @field open_strategy? DockyardOpenStrategy Default open strategy for :Dockyard
 
+--- @class ComposeLensConfig
+--- @field enabled? boolean Clickable Run/Stop/Logs/Shell actions next to services in compose files
+
 --- @class DockyardConfig
 --- @field display? DisplayConfig Display settings
+--- @field compose_lens? ComposeLensConfig Compose file actions
 --- @field loglens? LogLensConfig LogLens settings
 --- @field keymaps? DockyardKeymapsConfig Keybindings (see core/keymaps.lua for type)
 
@@ -71,6 +75,9 @@ M.options = {
 	display = {
 		views = { "containers", "images", "networks", "volumes" },
 		open_strategy = "tab",
+	},
+	compose_lens = {
+		enabled = true,
 	},
 	loglens = {
 		containers = {},
@@ -199,6 +206,7 @@ local function create_commands()
 	pcall(vim.api.nvim_del_user_command, "DockyardRun")
 	pcall(vim.api.nvim_del_user_command, "DockyardFiles")
 	pcall(vim.api.nvim_del_user_command, "DockyardLogs")
+	pcall(vim.api.nvim_del_user_command, "DockyardService")
 
 	vim.api.nvim_create_user_command("Dockyard", function(opts)
 		local strategy = resolve_strategy(opts.args, opts.mods)
@@ -229,6 +237,29 @@ local function create_commands()
 			require("dockyard.commands").run_all()
 		end
 	end, { desc = "Run Docker Compose services", range = true })
+
+	local service_actions = { "run", "stop", "restart", "logs", "shell" }
+	vim.api.nvim_create_user_command("DockyardService", function(cmd_opts)
+		local action = cmd_opts.fargs[1] or "run"
+		if not vim.tbl_contains(service_actions, action) then
+			vim.notify("DockyardService: unknown action '" .. action .. "'", vim.log.levels.ERROR)
+			return
+		end
+		local service = require("dockyard.commands.context").service_at_cursor()
+		if not service then
+			vim.notify("DockyardService: cursor is not on a compose service", vim.log.levels.WARN)
+			return
+		end
+		require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, service)
+	end, {
+		desc = "Run an action on the compose service under the cursor",
+		nargs = "?",
+		complete = function(arg_lead)
+			return vim.tbl_filter(function(a)
+				return vim.startswith(a, arg_lead)
+			end, service_actions)
+		end,
+	})
 
 	vim.api.nvim_create_user_command("DockyardLogs", function(cmd_opts)
 		local name = cmd_opts.fargs[1]
@@ -301,6 +332,9 @@ end
 function M.setup(opts)
 	M.options = vim.tbl_deep_extend("force", M.options, opts or {})
 	create_commands()
+	if M.options.compose_lens.enabled then
+		require("dockyard.compose_lens").setup()
+	end
 end
 
 return M
