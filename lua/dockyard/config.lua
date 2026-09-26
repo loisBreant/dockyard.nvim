@@ -332,6 +332,7 @@ end
 function M.setup(opts)
 	M.options = vim.tbl_deep_extend("force", M.options, opts or {})
 	create_commands()
+	require("dockyard.files").setup()
 	if M.options.compose_lens.enabled then
 		require("dockyard.compose_lens").setup()
 	end

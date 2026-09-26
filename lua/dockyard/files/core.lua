@@ -102,27 +102,28 @@ function M.read(container, path, cb)
 	end)
 end
 
+---Write through `cat >` inside the container rather than `docker cp`, so an
+---existing file keeps its owner and permissions.
 ---@param cb fun(res: { ok: boolean, error?: string })
 function M.write(container, path, lines, cb)
-	local tmp = vim.fn.tempname()
-	local fh, ferr = io.open(tmp, "wb")
-	if not fh then
-		return cb({ ok = false, error = ferr or "could not open tempfile" })
-	end
-	fh:write(table.concat(lines, "\n"))
+	local data = table.concat(lines, "\n")
 	if #lines > 0 then
-		fh:write("\n")
+		data = data .. "\n"
 	end
-	fh:close()
-
-	docker.run({ "cp", tmp, container .. ":" .. path }, function(res)
-		os.remove(tmp)
-		if res.ok then
-			cb({ ok = true })
-		else
-			cb({ ok = false, error = res.error or "docker cp failed" })
-		end
+	local cmd = { "docker", "exec", "-i", container, "sh", "-c", 'cat > "$1"', "sh", path }
+	local ok, err = pcall(vim.system, cmd, { stdin = data, text = true }, function(res)
+		vim.schedule(function()
+			if res.code == 0 then
+				cb({ ok = true })
+			else
+				local stderr = vim.trim(res.stderr or "")
+				cb({ ok = false, error = stderr ~= "" and stderr or "write failed" })
+			end
+		end)
 	end)
+	if not ok then
+		cb({ ok = false, error = tostring(err) })
+	end
 end
 
 function M.mkdir(container, path, cb)
@@ -143,13 +144,68 @@ function M.mv(container, src, dst, cb)
 	end)
 end
 
----@param cb fun(res: { ok: boolean, paths?: string[], error?: string })
-function M.find(container, path, pattern, cb)
-	exec(container, { "find", path, "-name", pattern }, function(res)
+function M.cp(container, src, dst, cb)
+	exec(container, { "cp", "-a", "--", src, dst }, function(res)
+		cb({ ok = res.ok, error = (not res.ok) and res.error or nil })
+	end)
+end
+
+---Copy a container path to the host.
+function M.download(container, src, host_dst, cb)
+	docker.run({ "cp", container .. ":" .. src, host_dst }, function(res)
+		cb({ ok = res.ok, error = (not res.ok) and res.error or nil })
+	end)
+end
+
+---Copy a host path into the container.
+function M.upload(container, host_src, dst, cb)
+	docker.run({ "cp", host_src, container .. ":" .. dst }, function(res)
+		cb({ ok = res.ok, error = (not res.ok) and res.error or nil })
+	end)
+end
+
+---Read a file synchronously, for BufReadCmd where the buffer must be filled
+---before Neovim positions the cursor (quickfix jumps, :e +N).
+---@return string[]|nil lines, string|nil error
+function M.read_sync(container, path)
+	local res = vim.system({ "docker", "exec", container, "cat", "--", path }, { text = true }):wait()
+	if res.code ~= 0 then
+		return nil, vim.trim(res.stderr or "") ~= "" and vim.trim(res.stderr) or "read failed"
+	end
+	return split_lines(res.stdout), nil
+end
+
+---Search file contents; each hit is { path, lnum, text }.
+---@param cb fun(res: { ok: boolean, hits?: { path: string, lnum: integer, text: string }[], error?: string })
+function M.grep(container, path, pattern, cb)
+	-- -I skips binary files; grep exits 1 when nothing matches, which is not an error
+	docker.run({ "exec", container, "sh", "-c", 'grep -rnI -- "$1" "$2"; [ $? -le 1 ]', "sh", pattern, path }, function(res)
 		if not res.ok then
 			return cb({ ok = false, error = res.error })
 		end
-		cb({ ok = true, paths = res.stdout })
+		local hits = {}
+		for _, line in ipairs(split_lines(res.data)) do
+			local file, lnum, text = line:match("^(.-):(%d+):(.*)$")
+			if file then
+				table.insert(hits, { path = file, lnum = tonumber(lnum), text = text })
+			end
+		end
+		cb({ ok = true, hits = hits })
+	end)
+end
+
+---Find paths by name. A pattern without wildcards matches as a substring.
+---@param cb fun(res: { ok: boolean, paths?: string[], error?: string })
+function M.find(container, path, pattern, cb)
+	if not pattern:find("[%*%?%[]") then
+		pattern = "*" .. pattern .. "*"
+	end
+	-- unreadable directories (/proc, ...) make find exit non-zero; keep what it found
+	docker.run({ "exec", container, "sh", "-c", 'find "$1" -name "$2" 2>/dev/null; true', "sh", path, pattern }, function(res)
+		if not res.ok then
+			return cb({ ok = false, error = res.error })
+		end
+		cb({ ok = true, paths = split_lines(res.data) })
 	end)
 end
 

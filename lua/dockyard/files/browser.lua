@@ -91,7 +91,7 @@ local function render()
 	end
 
 	local width = vim.api.nvim_win_get_width(0)
-	local header_lines = { ("# %s : %s"):format(state.container, state.path), "" }
+	local header_lines = { ("# %s : %s   (g? help)"):format(state.container, state.path), "" }
 
 	local body_lines, line_map, body_spans = table_view.render({
 		width = width,
@@ -192,45 +192,13 @@ local function activate()
 	M.open_file(state.container, target)
 end
 
-function M.open_file(container, path)
-	core.read(container, path, function(res)
-		if not res.ok then
-			notify(res.error or "read failed", vim.log.levels.ERROR)
-			return
-		end
-		local name = ("dockyard://%s%s"):format(container, path)
-		local buf = vim.fn.bufnr(name)
-		if buf == -1 then
-			buf = vim.api.nvim_create_buf(false, true)
-			vim.api.nvim_buf_set_name(buf, name)
-			vim.bo[buf].buftype = "acwrite"
-			vim.bo[buf].bufhidden = "wipe"
-			vim.bo[buf].swapfile = false
+---@return string
+function M.uri(container, path)
+	return ("dockyard://%s%s"):format(container, core.normalize(path))
+end
 
-			vim.api.nvim_create_autocmd("BufWriteCmd", {
-				buffer = buf,
-				callback = function()
-					local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-					core.write(container, path, lines, function(w)
-						if not w.ok then
-							notify(w.error or "write failed", vim.log.levels.ERROR)
-							return
-						end
-						vim.bo[buf].modified = false
-						notify("Saved " .. container .. ":" .. path)
-					end)
-				end,
-			})
-		end
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, res.lines)
-		vim.bo[buf].modified = false
-		local ft = vim.filetype.match({ filename = path })
-		if ft then
-			vim.bo[buf].filetype = ft
-		end
-		vim.cmd("vsplit")
-		vim.api.nvim_set_current_buf(buf)
-	end)
+function M.open_file(container, path)
+	vim.cmd("vsplit " .. vim.fn.fnameescape(M.uri(container, path)))
 end
 
 local function toggle_hidden()
@@ -318,7 +286,7 @@ local function create()
 end
 
 local function search()
-	vim.ui.input({ prompt = "find -name pattern: " }, function(pattern)
+	vim.ui.input({ prompt = "Find files named (glob or text): " }, function(pattern)
 		if not pattern or pattern == "" then
 			return
 		end
@@ -327,12 +295,123 @@ local function search()
 				notify(res.error or "find failed", vim.log.levels.ERROR)
 				return
 			end
+			if #(res.paths or {}) == 0 then
+				notify("No file matching " .. pattern .. " under " .. state.path, vim.log.levels.WARN)
+				return
+			end
 			local qf = {}
-			for _, p in ipairs(res.paths or {}) do
-				table.insert(qf, { filename = ("dockyard://%s%s"):format(state.container, p), lnum = 1, text = p })
+			for _, p in ipairs(res.paths) do
+				table.insert(qf, { filename = M.uri(state.container, p), lnum = 1, text = p })
 			end
 			vim.fn.setqflist({}, " ", { title = "dockyard find " .. pattern, items = qf })
-			vim.cmd("copen")
+			vim.cmd("botright copen")
+		end)
+	end)
+end
+
+local function grep()
+	vim.ui.input({ prompt = "Search file contents for: " }, function(pattern)
+		if not pattern or pattern == "" then
+			return
+		end
+		core.grep(state.container, state.path, pattern, function(res)
+			if not res.ok then
+				notify(res.error or "grep failed", vim.log.levels.ERROR)
+				return
+			end
+			if #(res.hits or {}) == 0 then
+				notify("No match for " .. pattern .. " under " .. state.path, vim.log.levels.WARN)
+				return
+			end
+			local qf = {}
+			for _, hit in ipairs(res.hits) do
+				table.insert(qf, { filename = M.uri(state.container, hit.path), lnum = hit.lnum, text = hit.text })
+			end
+			vim.fn.setqflist({}, " ", { title = "dockyard grep " .. pattern, items = qf })
+			vim.cmd("botright copen")
+		end)
+	end)
+end
+
+-- copy / cut buffer, shared across directories (and containers: paste checks)
+---@type { container: string, path: string, name: string, move: boolean }|nil
+local clipboard = nil
+
+local function mark(move)
+	local entry = current_entry()
+	if not entry or entry._parent then
+		return
+	end
+	clipboard = { container = state.container, path = abs_path_of(entry.name), name = entry.name, move = move }
+	notify(("%s %s — press p in the target directory"):format(move and "Cut" or "Copied", clipboard.path))
+end
+
+local function paste()
+	if not clipboard then
+		return notify("Nothing to paste: mark an entry with c (copy) or x (cut) first", vim.log.levels.WARN)
+	end
+	if clipboard.container ~= state.container then
+		return notify("Can only paste inside the container it was copied from", vim.log.levels.WARN)
+	end
+	local src, move = clipboard.path, clipboard.move
+	local dst = abs_path_of(clipboard.name)
+	if dst == src then
+		if move then
+			return notify("Source and destination are the same", vim.log.levels.WARN)
+		end
+		-- copying next to itself: pick a free name
+		dst = dst .. ".copy"
+	end
+	local fn = move and core.mv or core.cp
+	fn(state.container, src, dst, function(res)
+		if not res.ok then
+			return notify(res.error or "paste failed", vim.log.levels.ERROR)
+		end
+		notify(("%s %s -> %s"):format(move and "Moved" or "Copied", src, dst))
+		if move then
+			clipboard = nil
+		end
+		M.refresh()
+	end)
+end
+
+local function download()
+	local entry = current_entry()
+	if not entry or entry._parent then
+		return
+	end
+	local src = abs_path_of(entry.name)
+	local default = vim.fn.getcwd() .. "/" .. entry.name
+	vim.ui.input({ prompt = "Download to (host): ", default = default, completion = "file" }, function(dst)
+		if not dst or dst == "" then
+			return
+		end
+		dst = vim.fn.expand(dst)
+		core.download(state.container, src, dst, function(res)
+			if not res.ok then
+				return notify(res.error or "download failed", vim.log.levels.ERROR)
+			end
+			notify(("Downloaded %s -> %s"):format(src, dst))
+		end)
+	end)
+end
+
+local function upload()
+	vim.ui.input({ prompt = "Upload from (host): ", default = vim.fn.getcwd() .. "/", completion = "file" }, function(src)
+		if not src or src == "" then
+			return
+		end
+		src = vim.fn.expand(src):gsub("/+$", "")
+		if not vim.uv.fs_stat(src) then
+			return notify("No such host path: " .. src, vim.log.levels.ERROR)
+		end
+		local dst = abs_path_of(vim.fn.fnamemodify(src, ":t"))
+		core.upload(state.container, src, dst, function(res)
+			if not res.ok then
+				return notify(res.error or "upload failed", vim.log.levels.ERROR)
+			end
+			notify(("Uploaded %s -> %s"):format(src, dst))
+			M.refresh()
 		end)
 	end)
 end
@@ -352,21 +431,75 @@ local function close()
 	end
 end
 
+local keymaps = {
+	{ { "<CR>", "l" }, function()
+		activate()
+	end, "Open file / enter directory" },
+	{ { "-", "h" }, function()
+		go_up()
+	end, "Parent directory" },
+	{ "R", function()
+		M.refresh()
+	end, "Refresh" },
+	{ "gh", toggle_hidden, "Toggle hidden files" },
+	{ "s", search, "Find files by name (quickfix)" },
+	{ "S", grep, "Search file contents (quickfix)" },
+	{ "y", yank_path, "Yank path" },
+	{ "a", create, "Create file (end with / for a directory)" },
+	{ "r", rename, "Rename" },
+	{ "d", delete, "Delete" },
+	{ "c", function()
+		mark(false)
+	end, "Copy (then p to paste)" },
+	{ "x", function()
+		mark(true)
+	end, "Cut (then p to paste)" },
+	{ "p", paste, "Paste into this directory" },
+	{ "D", download, "Download to host" },
+	{ "U", upload, "Upload from host" },
+	{ "q", close, "Close" },
+}
+
+local function show_help()
+	local lines = {}
+	for _, km in ipairs(keymaps) do
+		local keys = type(km[1]) == "table" and table.concat(km[1], " ") or km[1]
+		table.insert(lines, ("  %-10s %s"):format(keys, km[3]))
+	end
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].bufhidden = "wipe"
+	local width = 0
+	for _, l in ipairs(lines) do
+		width = math.max(width, vim.fn.strdisplaywidth(l) + 2)
+	end
+	local win = vim.api.nvim_open_win(buf, true, {
+		relative = "editor",
+		width = width,
+		height = #lines,
+		row = math.floor((vim.o.lines - #lines) / 2),
+		col = math.floor((vim.o.columns - width) / 2),
+		style = "minimal",
+		border = "rounded",
+		title = " Dockyard files ",
+		title_pos = "center",
+	})
+	for _, key in ipairs({ "q", "<Esc>", "g?" }) do
+		vim.keymap.set("n", key, function()
+			pcall(vim.api.nvim_win_close, win, true)
+		end, { buffer = buf, nowait = true, silent = true })
+	end
+end
+
 local function attach_keymaps(buf)
 	local opts = { buffer = buf, silent = true, nowait = true }
-	vim.keymap.set("n", "<CR>", activate, opts)
-	vim.keymap.set("n", "l", activate, opts)
-	vim.keymap.set("n", "-", go_up, opts)
-	vim.keymap.set("n", "h", go_up, opts)
-	vim.keymap.set("n", "R", M.refresh, opts)
-	vim.keymap.set("n", "gh", toggle_hidden, opts)
-	vim.keymap.set("n", "s", search, opts)
-	vim.keymap.set("n", "y", yank_path, opts)
-	vim.keymap.set("n", "d", delete, opts)
-	vim.keymap.set("n", "r", rename, opts)
-	vim.keymap.set("n", "a", create, opts)
-	vim.keymap.set("n", "o", create, opts)
-	vim.keymap.set("n", "q", close, opts)
+	for _, km in ipairs(keymaps) do
+		for _, key in ipairs(type(km[1]) == "table" and km[1] or { km[1] }) do
+			vim.keymap.set("n", key, km[2], vim.tbl_extend("force", opts, { desc = km[3] }))
+		end
+	end
+	vim.keymap.set("n", "g?", show_help, vim.tbl_extend("force", opts, { desc = "Help" }))
 end
 
 ---@param container string
@@ -377,7 +510,14 @@ function M.open(container, path, opts)
 	path = core.normalize(path)
 
 	local name = ("dockyard://%s"):format(container)
-	local buf = vim.fn.bufnr(name)
+	-- exact lookup: bufnr() would also match dockyard://<container>/some/file
+	local buf = -1
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_get_name(b) == name then
+			buf = b
+			break
+		end
+	end
 	if buf == -1 then
 		buf = vim.api.nvim_create_buf(false, true)
 		vim.api.nvim_buf_set_name(buf, name)
