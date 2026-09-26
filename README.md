@@ -1,10 +1,18 @@
 [![Neovim](https://img.shields.io/badge/Neovim-0.10+-blue.svg)](https://neovim.io/)
-[![Version](https://img.shields.io/github/v/tag/emrearmagan/dockyard.nvim.svg)](https://github.com/emrearmagan/dockyard.nvim/tags)
-[![License](https://img.shields.io/github/license/emrearmagan/dockyard.nvim?style=flat-square&color=blue)](LICENSE)
+[![License](https://img.shields.io/github/license/loisBreant/dockyard.nvim?style=flat-square&color=blue)](LICENCE)
 
 # Dockyard.nvim
 
 Interactive Docker dashboard directly in your editor. It lets you view and manage containers, images, networks, and logs
+
+> [!NOTE]
+> This is a fork of [emrearmagan/dockyard.nvim](https://github.com/emrearmagan/dockyard.nvim) that stays in sync
+> with upstream and adds:
+>
+> - **Compose actions**: clickable `▶ Run` / `■ Stop` / `≡ Logs` / `Shell` buttons next to every service in compose files, like VSCode
+> - **Container file browser**: search by name or content, edit, copy/move, download and upload files
+> - **Container filter** (`F` / `C`), open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
+>   ANSI colors in logs, from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim)
 
 > [!CAUTION]
 > **Still in early development, will have breaking changes!**
@@ -37,14 +45,16 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - [x] Open shell sessions inside containers
 - [x] Stream and inspect logs
 - [x] Run Docker build commands from Dockyard
-- [ ] Navigate and search the file tree inside a container
-- [ ] Copy, modify, and manage files inside a container
+- [x] Filter containers by name, status, image, ports or compose project
+- [x] Run, stop, restart services and open their logs or a shell straight from compose files
+- [x] Navigate and search the file tree inside a container
+- [x] Copy, modify, and manage files inside a container
 
 ## Requirements
 
 - Neovim `>= 0.10`
 - Docker CLI available in `$PATH`
-- [`akinsho/toggleterm.nvim`](https://github.com/akinsho/toggleterm.nvim) (optional, for `T` shell keymap)
+- [`akinsho/toggleterm.nvim`](https://github.com/akinsho/toggleterm.nvim) (optional: `T` opens a native terminal without it)
 - [`m00qek/baleia.nvim`](https://github.com/m00qek/baleia.nvim) (optional, for ANSI colors in logs — e.g. `[0;32m  OK  [0m`)
 
 ## Installation
@@ -53,13 +63,17 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 
 ```lua
 {
-  "emrearmagan/dockyard.nvim",
+  "loisBreant/dockyard.nvim",
   dependencies = {
-    "akinsho/toggleterm.nvim", -- optional, for T shell
     "m00qek/baleia.nvim", -- optional, for ANSI colors in logs
   },
-  cmd = { "Dockyard", "DockyardFloat" },
-  lazy = true,
+  cmd = { "Dockyard", "DockyardFloat", "DockyardRun", "DockyardBuild", "DockyardFiles", "DockyardLogs" },
+  event = {
+    -- compose actions show up as soon as a compose file opens
+    "BufReadPost *compose.yml,*compose.yaml,*compose.*.yml,*compose.*.yaml",
+    -- open container files with :edit dockyard://<container>/<path>
+    "BufReadCmd dockyard://*",
+  },
   config = function()
     require("dockyard").setup({})
   end,
@@ -82,7 +96,11 @@ require("dockyard").setup({
     -- Available views: "containers", "compose", "images", "networks", "volumes"
     -- "compose" shows containers grouped by Docker Compose project
     views = { "containers", "images", "networks", "volumes" },
+    -- how :Dockyard opens without an argument: "current" | "split" | "vsplit" | "tab" | "float"
+    open_strategy = "tab",
   },
+  -- clickable actions next to services in compose files
+  compose_lens = { enabled = true },
   loglens = {
     containers = {
       -- Override highlights only
@@ -206,13 +224,55 @@ Each rule supports:
 > [!NOTE]
 > Dockyard comes with some default highlights, but you can override or extend them with your own rules.
 
+## Compose actions
+
+Open a `docker-compose.yml` / `compose.yaml` (or a `compose.*.yml` variant) and every service gets its state and actions
+at the end of its line; `services:` gets actions for the whole project:
+
+```yaml
+services:   ▶▶ Run all  ■ Stop all
+  api:   ● running  ↻ Restart  ■ Stop  ≡ Logs   Shell
+    image: my/api
+  db:   ○ exited  ▶ Run
+    image: postgres:16
+```
+
+Click a button to run it (`docker compose up -d`, `stop`, `restart`, LogLens, a shell). From the keyboard,
+`:DockyardService {run|stop|restart|logs|shell}` acts on the service under the cursor — map it if you use it often:
+
+```lua
+vim.keymap.set("n", "<leader>dr", "<cmd>DockyardService run<cr>", { desc = "Run compose service" })
+```
+
+## File browser
+
+`:DockyardFiles <container> [path]`, or `f` on a container, browses its filesystem. Press `g?` for the keymaps:
+
+| Key | Action |
+|---|---|
+| `<CR>` / `l` | open file / enter directory |
+| `-` / `h` | parent directory |
+| `s` | find files by name (glob or plain text) into the quickfix list |
+| `S` | search file contents into the quickfix list |
+| `a` | create a file, or a directory when the name ends with `/` |
+| `r` / `d` | rename / delete |
+| `c` / `x`, then `p` | copy / move an entry into the current directory |
+| `D` / `U` | download to the host / upload from the host |
+| `y` | yank the path |
+| `gh` | toggle hidden files |
+
+Files open as `dockyard://<container>/<path>` buffers: edit them and `:w` writes back into the container, keeping the
+file's owner and permissions. You can also `:edit dockyard://<container>/<path>` directly.
+
 ## Commands
 
-- `:Dockyard` - open fullscreen UI
+- `:Dockyard [current|split|vsplit|tab|float]` - open the UI (defaults to `display.open_strategy`; also honors `:vertical` / `:tab` modifiers)
 - `:DockyardFloat` - open floating UI
 - `:DockyardBuild` - build a Docker image from the nearest `Dockerfile`. Tags the image after the parent directory name.
-- `:DockyardRun` - runs Docker Compose services (`docker compose up -d --force-recreate`). SUpports visual selection.
+- `:DockyardRun` - runs Docker Compose services (`docker compose up -d --force-recreate`). Supports visual selection.
+- `:DockyardService {run|stop|restart|logs|shell}` - act on the compose service under the cursor
 - `:DockyardFiles <container> [path]` - browse a container's filesystem at `path` (defaults to `/`).
+- `:DockyardLogs <container>` - open LogLens for a container
 
 ## Keymaps
 
@@ -240,6 +300,7 @@ require("dockyard").setup({
       remove = "d",
       open_terminal = "T",
       open_logs = "L",
+      open_files = "f",
       filter = "F", -- filter containers (e.g. "running" to show only running)
       clear_filter = "C",
     },
@@ -266,6 +327,11 @@ require("dockyard").setup({
 })
 ```
 
+## Credits
+
+Built on [emrearmagan/dockyard.nvim](https://github.com/emrearmagan/dockyard.nvim) by Emre Armagan, with the container
+filter, open strategies and native terminal from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim).
+
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENCE).
