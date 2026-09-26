@@ -211,6 +211,11 @@ local function create_commands()
 	pcall(vim.api.nvim_del_user_command, "DockyardFiles")
 	pcall(vim.api.nvim_del_user_command, "DockyardLogs")
 	pcall(vim.api.nvim_del_user_command, "DockyardService")
+	pcall(vim.api.nvim_del_user_command, "DockyardPick")
+
+	vim.api.nvim_create_user_command("DockyardPick", function()
+		require("dockyard.picker").pick()
+	end, { desc = "Pick a container and act on it (logs, shell, files, port, start/stop, restart)" })
 
 	vim.api.nvim_create_user_command("Dockyard", function(opts)
 		local strategy = resolve_strategy(opts.args, opts.mods)
