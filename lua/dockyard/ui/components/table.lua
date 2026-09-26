@@ -252,6 +252,7 @@ end
 ---@field gap_after? integer Gap after this column.
 ---@field hl? string Default highlight group for this column body cells.
 ---@field header_hl? string Header highlight group for this column.
+---@field _computed? integer Width resolved by compute_widths (internal).
 
 ---@class TableTreeOpts
 ---@field children_key? string Child array field name (default: "children").
@@ -271,6 +272,7 @@ end
 ---@field fill? boolean If false, do not stretch columns to available width.
 ---@field cell_hl? fun(row:table, col:TableColumn):string|nil Per-cell highlight resolver.
 ---@field tree? TableTreeOpts Tree options (optional).
+---@field truncate? boolean Truncate cells to fit the width (default true).
 
 ---Example:
 ---```lua

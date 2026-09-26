@@ -30,7 +30,7 @@ local function contains(parent, child)
 	return child == parent or vim.startswith(child, parent == "/" and "/" or parent .. "/")
 end
 
----@param c Container
+---@param c { compose_dir?: string }
 ---@param root string
 function M.matches(c, root)
 	local dir = c.compose_dir

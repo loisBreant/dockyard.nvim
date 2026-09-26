@@ -25,7 +25,9 @@ local docker = require("dockyard.core.docker")
 function M.create(opts)
 	opts = opts or {}
 
+	-- methods are attached below
 	---@type StatsStreamInstance
+	---@diagnostic disable-next-line: missing-fields
 	local instance = {
 		container_id = nil,
 		history = {},

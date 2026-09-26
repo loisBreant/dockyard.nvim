@@ -2,7 +2,7 @@ local M = {}
 local docker = require("dockyard.core.docker")
 
 ---@param item Volume|nil
----@param on_done fun(res: { ok: boolean, error: string? }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 function M.remove(item, on_done, notify)
 	if not item then

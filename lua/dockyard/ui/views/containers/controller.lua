@@ -126,7 +126,7 @@ function M.open_terminal(item)
 end
 
 ---Host ports published by a container, from its formatted ports ("8080→80, 3000").
----@param item Container
+---@param item { ports?: string }
 ---@return integer[]
 function M.published_ports(item)
 	local ports = {}

@@ -30,7 +30,7 @@
 --- @field _order? string[]                   Optional per-source column key order override
 --- @field max_lines? number                  Optional per-source max rows override
 --- @field tails? number                      Number of lines to tail on initial load (default: 100)
---- @field format? fun(entry: any, ctx: table): table<string, any> Optional per-source formatter override
+--- @field format? fun(entry: any, ctx: table): table<string, any>|nil Optional per-source formatter override (nil skips the entry)
 --- @field highlights? LogHighlightRule[]     Optional per-source highlight override
 
 --- @class ContainerLogConfig
@@ -38,7 +38,7 @@
 --- @field _order? string[]                       Default column order for all sources
 --- @field max_lines? number                      Max rows kept in memory (default: 1000)
 --- @field tails? number                          Default initial tail lines for each source (default: 100)
---- @field format? fun(entry: any, ctx: table): table<string, any> Default formatter for all sources
+--- @field format? fun(entry: any, ctx: table): table<string, any>|nil Default formatter for all sources (nil skips the entry)
 --- @field highlights? LogHighlightRule[]         Default highlight rules for all sources
 
 --- @class LogLensConfig

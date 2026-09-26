@@ -4,7 +4,7 @@ local M = {}
 
 ---@param item Container
 ---@param action string
----@param on_done fun(res: { ok: boolean, error: string? }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 local function run_action(item, action, on_done, notify)
 	notify("Docker " .. action .. "...", "info")
@@ -25,7 +25,7 @@ local function run_action(item, action, on_done, notify)
 end
 
 ---@param item Container|nil
----@param on_done fun(res: { ok: boolean, error?: string }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 function M.toggle_start_stop(item, on_done, notify)
 	if not item then
@@ -37,7 +37,7 @@ function M.toggle_start_stop(item, on_done, notify)
 end
 
 ---@param item Container|nil
----@param on_done fun(res: { ok: boolean, error?: string }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 function M.stop(item, on_done, notify)
 	if not item then
@@ -48,7 +48,7 @@ function M.stop(item, on_done, notify)
 end
 
 ---@param item Container|nil
----@param on_done fun(res: { ok: boolean, error?: string }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 function M.restart(item, on_done, notify)
 	if not item then
@@ -59,7 +59,7 @@ function M.restart(item, on_done, notify)
 end
 
 ---@param item Container|nil
----@param on_done fun(res: { ok: boolean, error?: string }|nil, ok: boolean)|nil
+---@param on_done fun(res: DockyardResult|nil, ok: boolean)|nil
 ---@param notify fun(msg: string, level?: "success"|"warn"|"error"|"info"|"loading")
 function M.remove(item, on_done, notify)
 	if not item then

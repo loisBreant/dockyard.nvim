@@ -91,7 +91,9 @@ end
 ---@return string
 function M.icon(name)
 	local key = normalize(name)
-	return ICONS[key] or ICONS.fallback
+	-- some keys hold icon groups (ICONS.container), not icons
+	local icon = ICONS[key]
+	return type(icon) == "string" and icon or ICONS.fallback
 end
 
 return M

@@ -1,5 +1,7 @@
 local M = {}
 
+---@alias DockyardResult { ok: boolean, error?: string }
+
 ---Detect whether an container is in an in-progress transition.
 ---@param container Container|nil
 ---@return boolean
@@ -159,7 +161,7 @@ function M.list_containers(callback)
 
 	M.run({ "ps", "-a", "--format", format }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, data = {}, error = result.error })
 			return
 		end
 
@@ -263,7 +265,7 @@ M.list_images = function(callback)
 
 	M.run({ "images", "--format", format }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, data = {}, error = result.error })
 			return
 		end
 
@@ -303,7 +305,7 @@ M.list_networks = function(callback)
 
 	M.run({ "network", "ls", "--format", format }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, data = {}, error = result.error })
 			return
 		end
 
@@ -343,7 +345,7 @@ M.list_volumes = function(callback)
 
 	M.run({ "volume", "ls", "--format", format }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, data = {}, error = result.error })
 			return
 		end
 
@@ -364,7 +366,7 @@ end
 
 --- @param volume_name string
 --- @param action "rm"
---- @param callback fun(result: {ok: boolean, error?: string})
+--- @param callback fun(result: DockyardResult)
 M.volume_action = function(volume_name, action, callback)
 	M.run({ "volume", action, volume_name }, function(result)
 		if result.ok then
@@ -377,7 +379,7 @@ end
 
 --- @param container_id string
 --- @param action "start"|"stop"|"restart"|"rm"
---- @param callback fun(result: {ok: boolean, error?: string})
+--- @param callback fun(result: DockyardResult)
 M.container_action = function(container_id, action, callback)
 	M.run({ action, container_id }, function(result)
 		if result.ok then
@@ -390,7 +392,7 @@ end
 
 --- @param image_id string
 --- @param action "rm"
---- @param callback fun(result: {ok: boolean, error?: string})
+--- @param callback fun(result: DockyardResult)
 M.image_action = function(image_id, action, callback)
 	M.run({ "image", action, image_id }, function(result)
 		if result.ok then
@@ -401,7 +403,7 @@ M.image_action = function(image_id, action, callback)
 	end)
 end
 
---- @param callback fun(result: {ok: boolean, error?: string})
+--- @param callback fun(result: DockyardResult)
 M.image_prune = function(callback)
 	M.run({ "image", "prune", "-f", "-a" }, function(result)
 		if result.ok then
@@ -414,7 +416,7 @@ end
 
 --- @param network_id string
 --- @param action "rm"
---- @param callback fun(result: {ok: boolean, error?: string})
+--- @param callback fun(result: DockyardResult)
 M.network_action = function(network_id, action, callback)
 	M.run({ "network", action, network_id }, function(result)
 		if result.ok then
@@ -486,7 +488,7 @@ M.container_stats = function(container_id, callback)
 
 	M.run({ "stats", "--no-stream", "--format", format, container_id }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, error = result.error })
 			return
 		end
 
@@ -511,7 +513,7 @@ end
 M.container_top = function(container_id, callback)
 	M.run({ "top", container_id }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, error = result.error })
 			return
 		end
 		callback({ ok = true, data = result.data })
@@ -524,7 +526,7 @@ end
 M.inspect = function(type, id, callback)
 	M.run({ "inspect", "--type", type, id }, function(result)
 		if not result.ok then
-			callback(result)
+			callback({ ok = false, error = result.error })
 			return
 		end
 

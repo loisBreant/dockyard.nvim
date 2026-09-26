@@ -20,7 +20,7 @@ end
 
 ---@param buf number
 ---@param notify fun(msg:string,level?:"success"|"warn"|"error"|"info"|"loading")
----@param hooks { on_remove_done?: fun(res: { ok: boolean, error?: string }|nil, ok: boolean) }|nil
+---@param hooks { on_remove_done?: fun(res: DockyardResult|nil, ok: boolean) }|nil
 function M.setup(buf, notify, hooks)
 	local items = {}
 

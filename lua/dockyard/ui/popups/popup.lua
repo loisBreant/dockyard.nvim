@@ -48,6 +48,7 @@ function M.create(opts)
 		return state.win ~= nil and vim.api.nvim_win_is_valid(state.win)
 	end
 
+	---@return integer
 	local function ensure_buf()
 		if state.buf ~= nil and vim.api.nvim_buf_is_valid(state.buf) then
 			return state.buf

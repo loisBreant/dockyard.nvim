@@ -61,7 +61,9 @@ function M.start(container, source, tail, on_chunk, on_exit)
 				for i, line in ipairs(data) do
 					if line:match("^%d+$") then
 						inner_pid = tonumber(line)
-						untrack = jobs.track(container.id, inner_pid)
+						if inner_pid then
+							untrack = jobs.track(container.id, inner_pid)
+						end
 						table.remove(data, i)
 						break
 					end

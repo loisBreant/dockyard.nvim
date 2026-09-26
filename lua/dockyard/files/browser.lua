@@ -495,8 +495,9 @@ end
 local function attach_keymaps(buf)
 	local opts = { buffer = buf, silent = true, nowait = true }
 	for _, km in ipairs(keymaps) do
-		for _, key in ipairs(type(km[1]) == "table" and km[1] or { km[1] }) do
-			vim.keymap.set("n", key, km[2], vim.tbl_extend("force", opts, { desc = km[3] }))
+		local keys = km[1]
+		for _, key in ipairs(type(keys) == "table" and keys or { keys }) do
+			vim.keymap.set("n", key --[[@as string]], km[2], vim.tbl_extend("force", opts, { desc = km[3] }))
 		end
 	end
 	vim.keymap.set("n", "g?", show_help, vim.tbl_extend("force", opts, { desc = "Help" }))

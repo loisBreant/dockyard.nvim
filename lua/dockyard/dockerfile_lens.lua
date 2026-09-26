@@ -48,6 +48,7 @@ local function run_image(tag)
 	if vim.fn.has("nvim-0.11") == 1 then
 		vim.fn.jobstart(cmd, { term = true })
 	else
+		---@diagnostic disable-next-line: deprecated -- Neovim 0.10 fallback
 		vim.fn.termopen(cmd)
 	end
 	vim.cmd.startinsert()

@@ -20,7 +20,7 @@ local win_config_by_mode = ui_utils.win_config_by_mode
 local function update_active_view(on_done, opts)
 	local module = view_modules[state.current_view]
 	if module and type(module.update) == "function" then
-		module.update(on_done, opts)
+		module.update(on_done, opts --[[@as table|nil]])
 	elseif on_done then
 		on_done()
 	end
@@ -105,7 +105,7 @@ local function open_with(mode, win_config_fn, mods)
 			end
 			m = vim.trim(m:gsub("%s+", " "))
 			if m ~= "" then
-				local ok = pcall(vim.cmd, m .. " " .. cmd)
+				local ok = pcall(vim.cmd --[[@as function]], m .. " " .. cmd)
 				if not ok then
 					vim.cmd(cmd)
 				end
@@ -131,7 +131,7 @@ local function open_with(mode, win_config_fn, mods)
 	end
 	ui_utils.apply_win_config(state.win_id, mode)
 	statusline.attach(state.win_id)
-	local attached_win = state.win_id
+	local attached_win = state.win_id --[[@as integer]]
 	vim.api.nvim_create_autocmd("WinClosed", {
 		pattern = tostring(attached_win),
 		once = true,

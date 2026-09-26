@@ -10,7 +10,7 @@ local function center_text(text, width)
 	return string.rep(" ", left_pad) .. text, left_pad
 end
 
----@param mode "panel"|"full"
+---@param mode string display mode ("panel", "full", "float", "split", ...)
 ---@param width number
 ---@return { lines: string[], highlights: table[] }
 function M.render(mode, width)

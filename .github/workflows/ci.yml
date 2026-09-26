@@ -21,3 +21,27 @@ jobs:
           version: ${{ matrix.nvim }}
       - name: Run tests
         run: nvim --headless --clean -l tests/run.lua
+
+  typecheck:
+    name: type check (lua-language-server)
+    runs-on: ubuntu-latest
+    env:
+      LUALS_VERSION: 3.19.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Install lua-language-server
+        run: |
+          mkdir -p "$RUNNER_TEMP/luals"
+          curl -sSL "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/luals"
+      - name: Check
+        # .luarc.json points at $VIMRUNTIME for Neovim's API types; any warning fails the job
+        run: |
+          export VIMRUNTIME="$(nvim --clean --headless -c 'lua io.stdout:write(vim.env.VIMRUNTIME)' -c qa)"
+          "$RUNNER_TEMP/luals/bin/lua-language-server" --check=. --checklevel=Warning \
+            --configpath=.luarc.json --logpath="$RUNNER_TEMP/luals-log" | tee check.log
+          grep -q "no problems found" check.log

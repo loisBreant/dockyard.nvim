@@ -199,7 +199,11 @@ function M.run_action(buf, action, service, port)
 	end
 
 	if action == "run" then
-		local args = builder.run_cmd({ type = "compose", file = file, dir = dir }, service)
+		local args, err = builder.run_cmd({ type = "compose", file = file, dir = dir }, service)
+		if not args then
+			vim.notify("Dockyard: " .. tostring(err), vim.log.levels.ERROR)
+			return
+		end
 		executor.run(args, { cwd = dir, title = "compose up " .. label, on_exit = on_exit })
 	elseif action == "stop" or action == "restart" or action == "build" then
 		compose(action)

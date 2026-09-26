@@ -15,6 +15,15 @@ local function build_exec_cmd(container_id, shell)
 	return string.format("docker exec -it %s %s", container_id, shell)
 end
 
+-- termopen() is deprecated since Neovim 0.11 in favour of jobstart({ term = true })
+local function term_open(cmd, opts)
+	if vim.fn.has("nvim-0.11") == 1 then
+		return vim.fn.jobstart(cmd, vim.tbl_extend("force", opts or {}, { term = true }))
+	end
+	---@diagnostic disable-next-line: deprecated -- Neovim 0.10 fallback
+	return vim.fn.termopen(cmd, opts or vim.empty_dict())
+end
+
 local function is_valid_win(win)
 	return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
@@ -213,8 +222,8 @@ local function open_native_float(container_id, shell)
 	vim.api.nvim_set_option_value("winblend", 0, { win = win })
 
 	local cmd = build_exec_cmd(container_id, shell)
-	-- Use termopen so we get on_exit handling; fall back to :terminal
-	local ok = pcall(vim.fn.termopen, cmd, {
+	-- a terminal job, so we get on_exit handling
+	local ok = pcall(term_open, cmd, {
 		on_exit = function()
 			vim.schedule(function()
 				if is_valid_win(win) then
@@ -232,7 +241,7 @@ local function open_native_float(container_id, shell)
 	if not ok then
 		-- Fallback: :terminal (Neovim 0.10+ always has it)
 		vim.api.nvim_win_set_buf(win, buf)
-		vim.fn.termopen(cmd)
+		term_open(cmd)
 	end
 	vim.cmd("startinsert")
 	native_float = { container_id = container_id, buf = buf, win = win }
@@ -259,7 +268,7 @@ local function open_native_split(container_id, shell, target_win)
 	vim.api.nvim_set_option_value("swapfile", false, { buf = buf })
 
 	local cmd = build_exec_cmd(container_id, shell)
-	local ok = pcall(vim.fn.termopen, cmd, {
+	local ok = pcall(term_open, cmd, {
 		on_exit = function()
 			vim.schedule(function()
 				if is_valid_win(win) then
@@ -275,7 +284,7 @@ local function open_native_split(container_id, shell, target_win)
 		end,
 	})
 	if not ok then
-		vim.fn.termopen(cmd)
+		term_open(cmd)
 	end
 	vim.cmd("startinsert")
 	native_sessions[container_id] = { buf = buf, win = win }

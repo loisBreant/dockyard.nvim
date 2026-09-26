@@ -353,7 +353,7 @@ local function render_stats(width)
 
 	local lines = {}
 	local spans = {}
-	local latest = inst.latest
+	local latest = inst.latest --[[@as table]] -- checked above
 
 	-- CPU chart
 	local cpu_lines, cpu_spans = chart.render({

@@ -30,7 +30,7 @@ end
 
 ---@param buf number
 ---@param notify fun(msg:string,level?:"success"|"warn"|"error"|"info"|"loading")
----@param hooks { on_toggle?: fun(), on_remove_done?: fun(res: { ok: boolean, error?: string }|nil, ok: boolean), on_prune_done?: fun(res: { ok: boolean, error?: string }|nil, ok: boolean) }|nil
+---@param hooks { on_toggle?: fun(), on_remove_done?: fun(res: DockyardResult|nil, ok: boolean), on_prune_done?: fun(res: DockyardResult|nil, ok: boolean) }|nil
 function M.setup(buf, notify, hooks)
 	local items = {}
 
@@ -57,7 +57,7 @@ function M.setup(buf, notify, hooks)
 			callback = function()
 				local node = get_typed_node_at_cursor()
 				if node and node.kind == "image" then
-					actions.remove(node.item, function(res, ok)
+					actions.remove(node.item --[[@as Image]], function(res, ok)
 						if hooks and hooks.on_remove_done then
 							hooks.on_remove_done(res, ok)
 						end

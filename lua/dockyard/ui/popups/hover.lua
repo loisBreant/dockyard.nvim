@@ -172,18 +172,18 @@ function M.open(node)
 	local title, lines, spans
 	if node.kind == "container" then
 		title = v(node.item.name)
-		lines, spans = build_container(node.item)
+		lines, spans = build_container(node.item --[[@as Container]])
 	elseif node.kind == "image" then
 		local repo = v(node.item.repository)
 		local tag = v(node.item.tag)
 		title = (tag ~= "-" and tag ~= "") and (repo .. ":" .. tag) or repo
-		lines, spans = build_image(node.item)
+		lines, spans = build_image(node.item --[[@as Image]])
 	elseif node.kind == "network" then
 		title = v(node.item.name)
-		lines, spans = build_network(node.item)
+		lines, spans = build_network(node.item --[[@as Network]])
 	elseif node.kind == "volume" then
 		title = v(node.item.name)
-		lines, spans = build_volume(node.item)
+		lines, spans = build_volume(node.item --[[@as Volume]])
 	else
 		return
 	end

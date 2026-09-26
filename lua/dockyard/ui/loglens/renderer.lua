@@ -62,7 +62,8 @@ end
 ---@param filter string|nil
 ---@param active_source_idx number|nil  0 = All, else source index
 ---@param show_source_col boolean  prepend "source" column (only on All with >1 source)
----@return table[]
+---@return table[] rows
+---@return table<table, LogLensEntry> row_to_entry
 local function to_rows(entries, raw, filter, active_source_idx, show_source_col)
 	local rows = {}
 	local row_to_entry = setmetatable({}, { __mode = "k" })

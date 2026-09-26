@@ -295,8 +295,9 @@ local function build_body_compose(width, items)
 			local line = lines[lnum] or ""
 			local st = node.item.status
 			local icon = icons.container_icon(st)
-			if view_state.spinner_frame and docker.is_transitional_status(node.item) then
-				icon = view_state.spinner_frame
+			local frame = view_state.spinner_frame
+			if frame and docker.is_transitional_status(node.item) then
+				icon = frame
 			end
 			local s = line:find(icon, 1, true)
 			if s then
