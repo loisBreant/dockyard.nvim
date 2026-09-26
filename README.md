@@ -1,5 +1,6 @@
 [![Neovim](https://img.shields.io/badge/Neovim-0.10+-blue.svg)](https://neovim.io/)
 [![License](https://img.shields.io/github/license/loisBreant/dockyard.nvim?style=flat-square&color=blue)](LICENCE)
+[![CI](https://github.com/loisBreant/dockyard.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/loisBreant/dockyard.nvim/actions/workflows/ci.yml)
 
 # Dockyard.nvim
 
@@ -375,6 +376,17 @@ require("dockyard").setup({
   },
 })
 ```
+
+## Development
+
+Tests need nothing but Neovim:
+
+```sh
+nvim --headless --clean -l tests/run.lua                 # every spec
+nvim --headless --clean -l tests/run.lua tests/context_spec.lua
+```
+
+CI runs them on Neovim 0.10, stable and nightly.
 
 ## Credits
 

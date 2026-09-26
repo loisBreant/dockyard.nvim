@@ -48,9 +48,14 @@ function M.setup()
 			vim.bo[buf].swapfile = false
 			-- lockmarks: filling the buffer must not shift the line numbers of
 			-- quickfix entries already pointing into it
-			vim._with({ lockmarks = true }, function()
+			local function fill()
 				vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-			end)
+			end
+			if vim._with then
+				vim._with({ lockmarks = true }, fill)
+			else
+				fill()
+			end
 			vim.bo[buf].modified = false
 			local ft = vim.filetype.match({ filename = path, buf = buf })
 			if ft then

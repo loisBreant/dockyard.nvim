@@ -44,7 +44,12 @@ local function run_image(tag)
 	vim.cmd("botright 15split")
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_win_set_buf(0, buf)
-	vim.fn.jobstart({ "docker", "run", "--rm", "-it", "-P", tag }, { term = true })
+	local cmd = { "docker", "run", "--rm", "-it", "-P", tag }
+	if vim.fn.has("nvim-0.11") == 1 then
+		vim.fn.jobstart(cmd, { term = true })
+	else
+		vim.fn.termopen(cmd)
+	end
 	vim.cmd.startinsert()
 end
 
