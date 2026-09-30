@@ -9,6 +9,9 @@ local header = require("dockyard.ui.components.header")
 local navbar = require("dockyard.ui.components.navbar")
 local statusline = require("dockyard.ui.statusline")
 local ui_utils = require("dockyard.ui.utils")
+local scope = require("dockyard.scope")
+local scope_header = require("dockyard.ui.components.scope_header")
+local view_state = require("dockyard.ui.views.jobs.state")
 
 local STATUS = {
 	running = { icon = "⟳", hl = "DockyardPending" },
@@ -50,6 +53,18 @@ local function cell_hl(row, col)
 		return "DockyardName"
 	end
 	return "DockyardMuted"
+end
+
+---The jobs to show: the ones run inside the project (when the scope is on), then the ones matching the filter.
+---@param jobs DockyardJob[]
+---@param filter string|nil
+---@return DockyardJob[] shown, DockyardJob[] scoped
+function M.select(jobs, filter)
+	local scoped = scope.apply_jobs(jobs)
+	local shown = vim.tbl_filter(function(job)
+		return scope_header.matches({ job.title or "", job.status or "", job.cwd or "", runner.format_cmd(job.argv or {}) }, filter)
+	end, scoped)
+	return shown, scoped
 end
 
 ---@param jobs DockyardJob[]
@@ -97,7 +112,8 @@ local function draw()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local jobs = runner.list()
+	local all_jobs = runner.list()
+	local jobs, scoped = M.select(all_jobs, view_state.filter)
 
 	ui_utils.append_block(lines, spans, header.render(ui_state.mode, width))
 	ui_utils.append_block(
@@ -110,6 +126,21 @@ local function draw()
 		})
 	)
 	table.insert(lines, "")
+
+	ui_utils.append_block(
+		lines,
+		spans,
+		scope_header.block({
+			scope_on = scope.enabled(),
+			root = scope.root(),
+			scoped = #scoped,
+			total = #all_jobs,
+			filter = view_state.filter,
+			shown = #jobs,
+			scope_key = scope_header.key_label("jobs.toggle_project_scope", "P"),
+			clear_key = scope_header.key_label("jobs.clear_filter", "C"),
+		})
+	)
 
 	local body_lines, body_line_map, body_spans = build_body(width, jobs)
 	local body_start = ui_utils.append_body(lines, spans, body_lines, body_spans)

@@ -123,4 +123,35 @@ describe("volumes view selection", function()
 end)
 
 
+describe("jobs view selection", function()
+	local renderer = require("dockyard.ui.views.jobs.renderer")
+	local jobs = {
+		{ id = 1, title = "compose up all services", argv = { "docker", "compose", "up" }, cwd = root, status = "ok" },
+		{ id = 2, title = "docker build web", argv = { "docker", "build", "." }, cwd = root .. "/web", status = "failed" },
+		{ id = 3, title = "compose up other", argv = { "docker", "compose", "up" }, cwd = "/q/other", status = "ok" },
+	}
+
+	it("shows the jobs run inside the project", function()
+		scope_on(true)
+		eq({ 1, 2 }, names((renderer.select(jobs, nil)), "id"))
+	end)
+
+	it("filters by title, status, directory or command line", function()
+		scope_on(false)
+		eq({ 2 }, names((renderer.select(jobs, "BUILD")), "id"))
+		eq({ 2 }, names((renderer.select(jobs, "failed")), "id"))
+		eq({ 3 }, names((renderer.select(jobs, "/q/other")), "id"))
+		eq({ 1, 2, 3 }, names((renderer.select(jobs, "docker")), "id"))
+		scope_on(true)
+		local shown, scoped = renderer.select(jobs, "nothing")
+		eq(0, #shown)
+		eq(2, #scoped)
+	end)
+
+	it("has a filter controller", function()
+		eq("function", type(require("dockyard.ui.views.jobs.controller").filter.prompt_filter))
+	end)
+end)
+
+
 scope_on(config.defaults.display.project_scope)

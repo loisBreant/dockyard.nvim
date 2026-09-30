@@ -4,6 +4,8 @@ local runner = require("dockyard.commands.runner")
 local ui_state = require("dockyard.ui.state")
 local help = require("dockyard.ui.popups.help")
 local resolver = require("dockyard.core.keymaps")
+local view_filter = require("dockyard.ui.components.view_filter")
+local controller = require("dockyard.ui.views.jobs.controller")
 
 local GROUP = "Jobs"
 local INDEX = 50
@@ -97,6 +99,8 @@ function M.setup(buf, notify)
 		})
 	)
 
+	view_filter.push_items(items, "jobs", controller.filter, 10)
+
 	help.register(GROUP, items, { buffer = buf, index = INDEX })
 end
 
@@ -106,6 +110,7 @@ function M.teardown(buf)
 	for _, id in ipairs({ "jobs.open_output", "ui.open_details", "jobs.rerun", "jobs.cancel", "jobs.clear", "jobs.copy_command" }) do
 		resolver.push(items, resolver.removal(id))
 	end
+	view_filter.push_removals(items, "jobs")
 	help.remove(GROUP, items, { buffer = buf })
 end
 

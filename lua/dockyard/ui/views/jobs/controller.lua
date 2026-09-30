@@ -39,6 +39,15 @@ function M.schedule_render(delay)
 	end, delay or 100)
 end
 
+M.filter = require("dockyard.ui.components.view_filter").controller({
+	view = "jobs",
+	label = "jobs",
+	state = view_state,
+	render = function()
+		renderer.render()
+	end,
+})
+
 ---@param node { kind: string, item: DockyardJob }|nil
 function M.open_output(node)
 	if node and node.kind == "job" then
