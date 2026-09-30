@@ -13,6 +13,8 @@ local ui_utils = require("dockyard.ui.utils")
 local highlights = require("dockyard.ui.highlights")
 local view_state = require("dockyard.ui.views.images.state")
 local icons = require("dockyard.ui.icons")
+local scope = require("dockyard.scope")
+local scope_header = require("dockyard.ui.components.scope_header")
 
 local function current_width()
 	if ui_state.win_id ~= nil and vim.api.nvim_win_is_valid(ui_state.win_id) then
@@ -243,6 +245,19 @@ local function build_body(width, image, container)
 	return lines, line_map, spans
 end
 
+---The images to show: the ones of the project (when the scope is on), then the ones matching the filter.
+---@param images Image[]
+---@param containers Container[]
+---@param filter string|nil
+---@return Image[] shown, Image[] scoped
+function M.select(images, containers, filter)
+	local scoped = scope.apply_images(images, containers)
+	local shown = vim.tbl_filter(function(image)
+		return scope_header.matches({ image.repository or "", image.tag or "", image.id or "" }, filter)
+	end, scoped)
+	return shown, scoped
+end
+
 local function draw()
 	local buf = ui_state.buf_id
 	if buf == nil or not vim.api.nvim_buf_is_valid(buf) then
@@ -252,8 +267,9 @@ local function draw()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local image = data_state.images.get_items()
+	local all_images = data_state.images.get_items()
 	local container = data_state.containers.get_items()
+	local image, scoped = M.select(all_images, container, view_state.filter)
 
 	ui_utils.append_block(lines, spans, header.render(ui_state.mode, width))
 
@@ -268,6 +284,21 @@ local function draw()
 		})
 	)
 	table.insert(lines, "")
+
+	ui_utils.append_block(
+		lines,
+		spans,
+		scope_header.block({
+			scope_on = scope.enabled(),
+			root = scope.root(),
+			scoped = #scoped,
+			total = #all_images,
+			filter = view_state.filter,
+			shown = #image,
+			scope_key = scope_header.key_label("images.toggle_project_scope", "P"),
+			clear_key = scope_header.key_label("images.clear_filter", "C"),
+		})
+	)
 
 	local ok, body_lines, body_line_map, body_spans = pcall(build_body, width, image, container)
 	if not ok then
