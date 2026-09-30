@@ -125,7 +125,7 @@ function M.update(on_done, opts)
 	-- the scope needs the containers to tell which images are the project's
 	require("dockyard.scope").ensure_containers(function()
 		update_now(on_done, opts)
-	end)
+	end, { force = opts ~= nil and opts.force_update == true })
 end
 
 M.filter = require("dockyard.ui.components.view_filter").controller({

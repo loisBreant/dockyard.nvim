@@ -47,6 +47,7 @@ function M.run(args, callback)
 				local stderr = vim.trim(result.stderr or "")
 				callback({
 					ok = false,
+					data = result.stdout or "",
 					error = stderr ~= "" and stderr or "Docker command failed",
 				})
 			end
@@ -251,16 +252,21 @@ end
 --- @field size string
 --- @field compose_project string|nil compose project that built the image (label), when known
 
----Tell which compose project built each image. `stdout` holds one `{"id": …, "labels": …}` JSON per line, as
----printed by `docker image inspect`; ids are matched by prefix (the list shows the short id).
+-- `.Config` rather than `.Config.Labels`: the template fails on the many images that have no labels at all
+M.IMAGE_INSPECT_FORMAT = '{"id":{{json .Id}},"config":{{json .Config}}}'
+
+---Tell which compose project built each image. `stdout` holds one `{"id": …, "config": {"Labels": …}}` JSON per
+---line, as printed by `docker image inspect` with IMAGE_INSPECT_FORMAT; ids are matched by prefix (the list shows the
+---short id).
 ---@param images Image[]
 ---@param stdout string|nil
 function M.attach_image_labels(images, stdout)
 	local projects = {}
 	for line in (stdout or ""):gmatch("[^\r\n]+") do
 		local ok, parsed = pcall(vim.json.decode, line)
-		if ok and type(parsed) == "table" and type(parsed.id) == "string" and type(parsed.labels) == "table" then
-			local project = parsed.labels["com.docker.compose.project"]
+		if ok and type(parsed) == "table" and type(parsed.id) == "string" and type(parsed.config) == "table" then
+			local labels = parsed.config.Labels
+			local project = type(labels) == "table" and labels["com.docker.compose.project"] or nil
 			if project then
 				projects[(parsed.id:gsub("^sha256:", ""))] = project
 			end
@@ -321,12 +327,11 @@ M.list_images = function(callback)
 			callback({ ok = true, data = images })
 			return
 		end
-		local args = { "image", "inspect", "--format", '{"id":{{json .Id}},"labels":{{json .Config.Labels}}}' }
+		local args = { "image", "inspect", "--format", M.IMAGE_INSPECT_FORMAT }
 		vim.list_extend(args, ids)
 		M.run(args, function(inspected)
-			if inspected.ok then
-				M.attach_image_labels(images, inspected.data)
-			end
+			-- an image removed since the list makes the command fail but the others are still printed
+			M.attach_image_labels(images, inspected.data)
 			callback({ ok = true, data = images })
 		end)
 	end)

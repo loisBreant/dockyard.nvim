@@ -224,6 +224,31 @@ describe("scope.ensure_containers", function()
 		eq(1, calls)
 	end)
 
+	it("reloads the containers even when some are known, when asked to (the R key)", function()
+		local real_refresh, real_items = state.containers.refresh, state.containers.get_items
+		state.containers.get_items = function()
+			return { { name = "known" } }
+		end
+		local refreshed = 0
+		state.containers.refresh = function(opts)
+			refreshed = refreshed + 1
+			opts.on_success({})
+		end
+		enable(true)
+		local calls = 0
+		local function cb()
+			calls = calls + 1
+		end
+		scope.ensure_containers(cb)
+		eq({ 1, 0 }, { calls, refreshed })
+		scope.ensure_containers(cb, { force = true })
+		eq({ 2, 1 }, { calls, refreshed })
+		enable(false)
+		scope.ensure_containers(cb, { force = true })
+		state.containers.refresh, state.containers.get_items = real_refresh, real_items
+		eq({ 3, 1 }, { calls, refreshed })
+	end)
+
 	it("calls back even when loading the containers fails", function()
 		local real_refresh, real_items = state.containers.refresh, state.containers.get_items
 		state.containers.get_items = function()

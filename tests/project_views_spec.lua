@@ -4,6 +4,7 @@ local config = require("dockyard.config")
 local root = vim.fs.normalize(vim.fn.tempname() .. "/app")
 vim.fn.mkdir(root, "p")
 vim.fn.writefile({ "services: {}" }, root .. "/compose.yml")
+local real_root = scope.root
 scope.root = function()
 	return root
 end
@@ -55,6 +56,27 @@ describe("images view selection", function()
 		eq(4, #renderer.select(images, containers, nil))
 		eq({}, renderer.select(images, containers, "zzz"))
 	end)
+end)
+
+describe("the R key reloads the containers the scope depends on", function()
+	for _, view in ipairs({ "images", "networks", "volumes" }) do
+		it("in the " .. view .. " view", function()
+			local data_state = require("dockyard.state")
+			local controller = require("dockyard.ui.views." .. view .. ".controller")
+			local real_refresh, real_ensure = data_state[view].refresh, scope.ensure_containers
+			data_state[view].refresh = function() end
+			local asked = {}
+			scope.ensure_containers = function(_, opts)
+				table.insert(asked, opts or {})
+			end
+			controller.update(nil, { force_update = true })
+			controller.update(nil, nil)
+			data_state[view].refresh, scope.ensure_containers = real_refresh, real_ensure
+			eq(2, #asked)
+			eq(true, asked[1].force)
+			eq(false, asked[2].force == true)
+		end)
+	end
 end)
 
 describe("images view keys", function()
@@ -154,4 +176,5 @@ describe("jobs view selection", function()
 end)
 
 
+scope.root = real_root
 scope_on(config.defaults.display.project_scope)

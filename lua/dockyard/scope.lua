@@ -229,10 +229,12 @@ function M.apply_jobs(jobs)
 end
 
 ---Networks, volumes and images are tied to the project through its containers: have them before drawing.
+---`opts.force` reloads them even when some are known (the refresh key), so a refresh is never stale.
 ---@param cb fun()
-function M.ensure_containers(cb)
+---@param opts? { force?: boolean }
+function M.ensure_containers(cb, opts)
 	local containers = require("dockyard.state").containers
-	if not M.enabled() or #containers.get_items() > 0 then
+	if not M.enabled() or (#containers.get_items() > 0 and not (opts and opts.force)) then
 		return cb()
 	end
 	containers.refresh({
