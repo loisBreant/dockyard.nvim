@@ -63,9 +63,29 @@
 --- @class ComposeLensConfig
 --- @field enabled? boolean Clickable actions next to services in compose files and on a Dockerfile's FROM line
 
+--- @class JobsNoticeConfig
+--- @field close_after? integer Milliseconds before the notice of a finished job closes (failed jobs stay until `q`); 0 keeps it
+
+--- @class JobsConfig
+--- @field history? integer Finished jobs kept in the Jobs view
+--- @field notice? JobsNoticeConfig
+
+--- @class ComposeDefaultsConfig
+--- @field force_recreate? boolean `up --force-recreate`
+--- @field build? boolean `up --build`
+--- @field pull? false|"always"|"missing"|"never" `up --pull`
+--- @field no_deps? boolean `up --no-deps`
+--- @field wait? boolean `up --wait`
+--- @field remove_orphans? boolean `up --remove-orphans`
+
+--- @class ComposeConfig
+--- @field defaults? ComposeDefaultsConfig Flags of projects that have no saved preferences
+
 --- @class DockyardConfig
 --- @field display? DisplayConfig Display settings
 --- @field compose_lens? ComposeLensConfig Compose file actions
+--- @field compose? ComposeConfig Compose options
+--- @field jobs? JobsConfig Command history and notices
 --- @field loglens? LogLensConfig LogLens settings
 --- @field keymaps? DockyardKeymapsConfig Keybindings (see core/keymaps.lua for type)
 
@@ -80,6 +100,20 @@ M.options = {
 	},
 	compose_lens = {
 		enabled = true,
+	},
+	compose = {
+		defaults = {
+			force_recreate = true,
+			build = false,
+			pull = false,
+			no_deps = false,
+			wait = false,
+			remove_orphans = false,
+		},
+	},
+	jobs = {
+		history = 50,
+		notice = { close_after = 3000 },
 	},
 	loglens = {
 		containers = {},
@@ -118,6 +152,13 @@ M.options = {
 		volumes = {
 			remove = "d",
 		},
+		jobs = {
+			open_output = "<CR>",
+			rerun = "r",
+			cancel = "x",
+			clear = "D",
+			copy_command = "y",
+		},
 		loglens = {
 			close = "q",
 			toggle_follow = "f",
@@ -153,6 +194,8 @@ function M.validate(options)
 
 	check("display", options.display, "table")
 	check("compose_lens", options.compose_lens, "table")
+	check("compose", options.compose, "table")
+	check("jobs", options.jobs, "table")
 	check("loglens", options.loglens, "table")
 	check("keymaps", options.keymaps, "table")
 	if type(options.display) == "table" then
@@ -165,6 +208,26 @@ function M.validate(options)
 	end
 	if type(options.compose_lens) == "table" then
 		check("compose_lens.enabled", options.compose_lens.enabled, "boolean")
+	end
+	if type(options.jobs) == "table" then
+		check("jobs.history", options.jobs.history, "number")
+		check("jobs.notice", options.jobs.notice, "table")
+		if type(options.jobs.notice) == "table" then
+			check("jobs.notice.close_after", options.jobs.notice.close_after, "number")
+		end
+	end
+	if type(options.compose) == "table" then
+		check("compose.defaults", options.compose.defaults, "table")
+		local defaults = options.compose.defaults
+		if type(defaults) == "table" then
+			for _, name in ipairs({ "force_recreate", "build", "no_deps", "wait", "remove_orphans" }) do
+				check("compose.defaults." .. name, defaults[name], "boolean")
+			end
+			local pull = defaults.pull
+			if pull ~= false and pull ~= "always" and pull ~= "missing" and pull ~= "never" then
+				table.insert(errors, 'compose.defaults.pull: expected false, "always", "missing" or "never", got ' .. vim.inspect(pull))
+			end
+		end
 	end
 	if type(options.keymaps) == "table" then
 		for context, maps in pairs(options.keymaps) do

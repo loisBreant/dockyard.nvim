@@ -35,6 +35,13 @@ local M = {}
 ---@class DockyardVolumesKeymaps
 ---@field remove? DockyardKeymapValue
 
+---@class DockyardJobsKeymaps
+---@field open_output? DockyardKeymapValue
+---@field rerun? DockyardKeymapValue
+---@field cancel? DockyardKeymapValue
+---@field clear? DockyardKeymapValue
+---@field copy_command? DockyardKeymapValue
+
 ---@class DockyardLogLensKeymaps
 ---@field close? DockyardKeymapValue
 ---@field toggle_follow? DockyardKeymapValue
@@ -52,6 +59,7 @@ local M = {}
 ---@field images? DockyardImagesKeymaps
 ---@field networks? DockyardNetworksKeymaps
 ---@field volumes? DockyardVolumesKeymaps
+---@field jobs? DockyardJobsKeymaps
 ---@field loglens? DockyardLogLensKeymaps
 
 ---@param value DockyardKeymapValue
@@ -215,6 +223,14 @@ local VOLUMES_IDS = {
 	"volumes.remove",
 }
 
+local JOBS_IDS = {
+	"jobs.open_output",
+	"jobs.rerun",
+	"jobs.cancel",
+	"jobs.clear",
+	"jobs.copy_command",
+}
+
 local LOGLENS_IDS = {
 	"loglens.close",
 	"loglens.toggle_follow",
@@ -239,12 +255,17 @@ end
 
 ---@return table<string, table<string, string[]>>
 function M.validate()
+	-- the Jobs view is a flat list: it has no expand / collapse key to clash with
+	local ui_without_tree = vim.tbl_filter(function(id)
+		return id ~= "ui.toggle_node"
+	end, UI_IDS)
 	return {
 		ui = conflicts_for(UI_IDS, {}),
 		containers = conflicts_for(concat(UI_IDS, CONTAINERS_IDS), {}),
 		images = conflicts_for(concat(UI_IDS, IMAGES_IDS), {}),
 		networks = conflicts_for(concat(UI_IDS, NETWORKS_IDS), {}),
 		volumes = conflicts_for(concat(UI_IDS, VOLUMES_IDS), {}),
+		jobs = conflicts_for(concat(ui_without_tree, JOBS_IDS), {}),
 		loglens = conflicts_for(LOGLENS_IDS, {}),
 	}
 end

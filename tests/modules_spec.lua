@@ -56,6 +56,24 @@ describe("config", function()
 		truthy(errors:find("keymaps.containers.filter"), errors)
 	end)
 
+	it("reports wrong jobs and compose options", function()
+		local opts = vim.tbl_deep_extend("force", vim.deepcopy(config.defaults), {
+			jobs = { history = "many", notice = { close_after = "soon" } },
+			compose = { defaults = { build = "yes", pull = "sometimes" } },
+		})
+		local errors = table.concat(config.validate(opts), "\n")
+		truthy(errors:find("jobs.history"), errors)
+		truthy(errors:find("jobs.notice.close_after"), errors)
+		truthy(errors:find("compose.defaults.build"), errors)
+		truthy(errors:find("compose.defaults.pull"), errors)
+	end)
+
+	it("accepts a pull policy and knows the new options", function()
+		local opts = vim.tbl_deep_extend("force", vim.deepcopy(config.defaults), { compose = { defaults = { pull = "always" } } })
+		eq({}, config.validate(opts))
+		eq({}, config.unknown_keys({ jobs = { history = 10 }, compose = { defaults = { build = true } }, keymaps = { jobs = { rerun = "R" } } }))
+	end)
+
 	it("finds unknown options but not container log configs", function()
 		eq({ "compose_lense", "display.view" }, config.unknown_keys({
 			display = { view = {} },
@@ -79,5 +97,11 @@ describe("modules", function()
 		require("dockyard").setup({ display = { open_strategy = "float" } })
 		eq("float", require("dockyard.config").options.display.open_strategy)
 		eq("auto", require("dockyard.config").options.display.project_scope)
+	end)
+end)
+
+describe("keymaps", function()
+	it("the defaults of the Jobs view do not clash with each other or the general keys", function()
+		eq({}, require("dockyard.core.keymaps").validate().jobs)
 	end)
 end)
