@@ -249,6 +249,35 @@ end
 --- @field created string
 --- @field created_since string
 --- @field size string
+--- @field compose_project string|nil compose project that built the image (label), when known
+
+---Tell which compose project built each image. `stdout` holds one `{"id": …, "labels": …}` JSON per line, as
+---printed by `docker image inspect`; ids are matched by prefix (the list shows the short id).
+---@param images Image[]
+---@param stdout string|nil
+function M.attach_image_labels(images, stdout)
+	local projects = {}
+	for line in (stdout or ""):gmatch("[^\r\n]+") do
+		local ok, parsed = pcall(vim.json.decode, line)
+		if ok and type(parsed) == "table" and type(parsed.id) == "string" and type(parsed.labels) == "table" then
+			local project = parsed.labels["com.docker.compose.project"]
+			if project then
+				projects[(parsed.id:gsub("^sha256:", ""))] = project
+			end
+		end
+	end
+	for _, image in ipairs(images) do
+		local short = tostring(image.id or ""):gsub("^sha256:", "")
+		if short ~= "" then
+			for full, project in pairs(projects) do
+				if vim.startswith(full, short) then
+					image.compose_project = project
+					break
+				end
+			end
+		end
+	end
+end
 
 --- @param callback fun(result: {ok: boolean, data: Image[], error?: string})
 M.list_images = function(callback)
@@ -280,7 +309,26 @@ M.list_images = function(callback)
 			end
 		end
 
-		callback({ ok = true, data = images })
+		-- labels are not part of `docker images`: one inspect for all of them
+		local ids, seen = {}, {}
+		for _, image in ipairs(images) do
+			if image.id and image.id ~= "" and not seen[image.id] then
+				seen[image.id] = true
+				table.insert(ids, image.id)
+			end
+		end
+		if #ids == 0 then
+			callback({ ok = true, data = images })
+			return
+		end
+		local args = { "image", "inspect", "--format", '{"id":{{json .Id}},"labels":{{json .Config.Labels}}}' }
+		vim.list_extend(args, ids)
+		M.run(args, function(inspected)
+			if inspected.ok then
+				M.attach_image_labels(images, inspected.data)
+			end
+			callback({ ok = true, data = images })
+		end)
 	end)
 end
 
@@ -290,6 +338,7 @@ end
 --- @field driver string
 --- @field scope string
 --- @field created string
+--- @field labels string `k=v,k2=v2`, empty without labels
 
 --- @param callback fun(result: {ok: boolean, data: Network[], error?: string})
 M.list_networks = function(callback)
@@ -299,7 +348,8 @@ M.list_networks = function(callback)
 		'  "name": {{json .Name}},',
 		'  "driver": {{json .Driver}},',
 		'  "scope": {{json .Scope}},',
-		'  "created": {{json .CreatedAt}}',
+		'  "created": {{json .CreatedAt}},',
+		'  "labels": {{json .Labels}}',
 		"}",
 	}, "")
 
