@@ -144,13 +144,22 @@ M.options = {
 		},
 		images = {
 			remove = "d",
-			prune = "P",
+			prune = "X",
+			filter = "F",
+			clear_filter = "C",
+			toggle_project_scope = "P",
 		},
 		networks = {
 			remove = "d",
+			filter = "F",
+			clear_filter = "C",
+			toggle_project_scope = "P",
 		},
 		volumes = {
 			remove = "d",
+			filter = "F",
+			clear_filter = "C",
+			toggle_project_scope = "P",
 		},
 		jobs = {
 			open_output = "<CR>",
@@ -158,6 +167,9 @@ M.options = {
 			cancel = "x",
 			clear = "D",
 			copy_command = "y",
+			filter = "F",
+			clear_filter = "C",
+			toggle_project_scope = "P",
 		},
 		loglens = {
 			close = "q",

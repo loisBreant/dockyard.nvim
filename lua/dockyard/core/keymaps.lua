@@ -28,12 +28,21 @@ local M = {}
 ---@class DockyardImagesKeymaps
 ---@field remove? DockyardKeymapValue
 ---@field prune? DockyardKeymapValue
+---@field filter? DockyardKeymapValue
+---@field clear_filter? DockyardKeymapValue
+---@field toggle_project_scope? DockyardKeymapValue
 
 ---@class DockyardNetworksKeymaps
 ---@field remove? DockyardKeymapValue
+---@field filter? DockyardKeymapValue
+---@field clear_filter? DockyardKeymapValue
+---@field toggle_project_scope? DockyardKeymapValue
 
 ---@class DockyardVolumesKeymaps
 ---@field remove? DockyardKeymapValue
+---@field filter? DockyardKeymapValue
+---@field clear_filter? DockyardKeymapValue
+---@field toggle_project_scope? DockyardKeymapValue
 
 ---@class DockyardJobsKeymaps
 ---@field open_output? DockyardKeymapValue
@@ -41,6 +50,9 @@ local M = {}
 ---@field cancel? DockyardKeymapValue
 ---@field clear? DockyardKeymapValue
 ---@field copy_command? DockyardKeymapValue
+---@field filter? DockyardKeymapValue
+---@field clear_filter? DockyardKeymapValue
+---@field toggle_project_scope? DockyardKeymapValue
 
 ---@class DockyardLogLensKeymaps
 ---@field close? DockyardKeymapValue
@@ -213,14 +225,23 @@ local CONTAINERS_IDS = {
 local IMAGES_IDS = {
 	"images.remove",
 	"images.prune",
+	"images.filter",
+	"images.clear_filter",
+	"images.toggle_project_scope",
 }
 
 local NETWORKS_IDS = {
 	"networks.remove",
+	"networks.filter",
+	"networks.clear_filter",
+	"networks.toggle_project_scope",
 }
 
 local VOLUMES_IDS = {
 	"volumes.remove",
+	"volumes.filter",
+	"volumes.clear_filter",
+	"volumes.toggle_project_scope",
 }
 
 local JOBS_IDS = {
@@ -229,6 +250,9 @@ local JOBS_IDS = {
 	"jobs.cancel",
 	"jobs.clear",
 	"jobs.copy_command",
+	"jobs.filter",
+	"jobs.clear_filter",
+	"jobs.toggle_project_scope",
 }
 
 local LOGLENS_IDS = {

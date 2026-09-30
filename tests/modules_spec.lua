@@ -116,4 +116,19 @@ describe("keymaps", function()
 	it("the defaults of the Jobs view do not clash with each other or the general keys", function()
 		eq({}, require("dockyard.core.keymaps").validate().jobs)
 	end)
+
+	it("every view has a filter, a clear and a scope key; Images prune moved to X", function()
+		local keymaps = require("dockyard.config").defaults.keymaps
+		for _, view in ipairs({ "images", "networks", "volumes", "jobs" }) do
+			eq({ "F", "C", "P" }, { keymaps[view].filter, keymaps[view].clear_filter, keymaps[view].toggle_project_scope }, view)
+		end
+		eq("X", keymaps.images.prune)
+	end)
+
+	it("none of the views has clashing keys", function()
+		local conflicts = require("dockyard.core.keymaps").validate()
+		for _, view in ipairs({ "images", "networks", "volumes", "jobs", "containers" }) do
+			eq({}, conflicts[view], view)
+		end
+	end)
 end)
