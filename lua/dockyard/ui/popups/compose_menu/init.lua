@@ -12,6 +12,18 @@ local WIDTH = 78
 
 local ACTIONS = { d = "down", b = "build", p = "pull", s = "stop", r = "restart", u = "up" }
 
+---Write the compose buffer if it has unsaved changes: the commands read the file on disk.
+---@param file string
+local function save_if_modified(file)
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_get_name(buf) == file and vim.bo[buf].modified then
+			vim.api.nvim_buf_call(buf, function()
+				vim.cmd("silent! write")
+			end)
+		end
+	end
+end
+
 ---@param state DockyardComposeMenuState
 ---@param run_opts { on_exit?: fun(ok: boolean) }
 local function open_window(state, run_opts)
@@ -113,6 +125,7 @@ local function open_window(state, run_opts)
 		local opts = model.opts(state)
 		local function go()
 			close()
+			save_if_modified(state.file)
 			compose_run.run(state.file, action, {
 				volumes = state.once.volumes,
 				rmi = state.once.rmi,
@@ -121,6 +134,8 @@ local function open_window(state, run_opts)
 		end
 		if action == "down" and (opts.volumes or opts.rmi) then
 			local what = opts.volumes and "the volumes" or "the images"
+			-- the prompt must not end up under the menu when vim.ui.select draws a float
+			close()
 			vim.ui.select({ "No", "Yes" }, {
 				prompt = ("Remove %s of %s?"):format(what, vim.fn.fnamemodify(state.project.dir, ":~")),
 			}, function(choice)
@@ -166,6 +181,7 @@ end
 function M.open(file, opts)
 	opts = opts or {}
 	require("dockyard.ui.highlights").setup()
+	save_if_modified(file)
 	profiles.detect(file, function(available, source, err)
 		if source == "scan" and err and err ~= "" then
 			vim.notify("Dockyard: could not ask docker for the profiles, read them from the file instead:\n" .. err, vim.log.levels.INFO)

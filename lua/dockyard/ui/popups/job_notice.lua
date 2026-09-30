@@ -34,7 +34,7 @@ function M.build_lines(job)
 	if job.status == "ok" then
 		table.insert(lines, (" ✔ Done in %s"):format(runner.format_duration(runner.duration(job))))
 	elseif job.status == "failed" then
-		table.insert(lines, (" ✖ Failed (exit %s) · <CR> full output · q close"):format(tostring(job.code)))
+		table.insert(lines, (" ✖ Failed (exit %s) · :Dockyard job last · q close"):format(tostring(job.code)))
 	elseif job.status == "cancelled" then
 		table.insert(lines, " ⊘ Cancelled")
 	end

@@ -74,6 +74,24 @@ describe("prefs.set", function()
 	end)
 end)
 
+describe("prefs shared between Neovim instances", function()
+	it("keeps what another instance saved in the meantime", function()
+		fresh()
+		local other = dir .. "/other.yml"
+		vim.fn.writefile({ "services: {}" }, other)
+		prefs.get(project) -- this instance has read the file (there was none)
+		-- another instance saves preferences for `other`
+		vim.fn.mkdir(dir .. "/data", "p")
+		vim.fn.writefile({ vim.json.encode({ version = 1, projects = { [prefs.key(other)] = { profiles = { "x" } } } }) }, store)
+		local mine = prefs.get(project)
+		mine.build = true
+		truthy(prefs.set(project, mine))
+		prefs.reset()
+		eq({ "x" }, prefs.get(other).profiles)
+		eq(true, prefs.get(project).build)
+	end)
+end)
+
 describe("prefs with a broken file", function()
 	it("moves it aside and starts from the defaults", function()
 		fresh()

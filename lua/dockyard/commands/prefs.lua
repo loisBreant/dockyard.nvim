@@ -24,22 +24,32 @@ local function warn(msg)
 	vim.notify("Dockyard: " .. msg, vim.log.levels.WARN)
 end
 
-local function load()
-	if data then
-		return data
-	end
-	data = { version = VERSION, projects = {} }
-	local path = M.path()
-	local fd = io.open(path, "r")
+---What is on disk: nil when there is no file, nil and true when it cannot be used.
+---@return table|nil decoded, boolean|nil unreadable
+local function read()
+	local fd = io.open(M.path(), "r")
 	if not fd then
-		return data
+		return nil
 	end
 	local text = fd:read("*a")
 	fd:close()
 	local ok, decoded = pcall(vim.json.decode, text, { luanil = { object = true, array = true } })
 	if ok and type(decoded) == "table" and decoded.version == VERSION and type(decoded.projects) == "table" then
+		return decoded
+	end
+	return nil, true
+end
+
+local function load()
+	if data then
+		return data
+	end
+	data = { version = VERSION, projects = {} }
+	local decoded, unreadable = read()
+	if decoded then
 		data = decoded
-	else
+	elseif unreadable then
+		local path = M.path()
 		vim.uv.fs_rename(path, path .. ".bak")
 		warn("could not read " .. path .. "; it was moved to projects.json.bak")
 	end
@@ -104,8 +114,10 @@ function M.set(file, prefs)
 	for _, name in ipairs(FLAGS) do
 		entry[name] = prefs[name]
 	end
-	local current = load()
+	-- another Neovim may have saved other projects since we read the file: start from what is there now
+	local current = read() or load()
 	current.projects[M.key(file)] = entry
+	data = current
 
 	local path = M.path()
 	vim.fn.mkdir(vim.fs.dirname(path), "p")

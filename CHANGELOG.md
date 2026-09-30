@@ -17,8 +17,8 @@
 
 ### Changed
 
-- The notice of a command starts with the exact command line and no longer closes when the command fails (`q` closes it,
-  `<CR>` opens the whole output)
+- The notice of a command starts with the exact command line and no longer closes when the command fails
+  (`:Dockyard job last` opens the whole output; with the notice focused, `<CR>` does too and `q` closes it)
 - `-v` and `--rmi` are never remembered, and `down` asks before removing volumes or images
 - The Jobs view is added to the default `display.views`
 

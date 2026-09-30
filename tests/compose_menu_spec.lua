@@ -209,6 +209,41 @@ describe("compose menu window", function()
 		eq({ "down" }, calls)
 	end)
 
+	it("saves a modified compose buffer before it runs", function()
+		vim.cmd("edit " .. vim.fn.fnameescape(file))
+		local cbuf = vim.api.nvim_get_current_buf()
+		vim.api.nvim_buf_set_lines(cbuf, -1, -1, false, { "# edited" })
+		eq(true, vim.bo[cbuf].modified)
+		local modified_when_run
+		local real = compose_run.run
+		compose_run.run = function()
+			modified_when_run = vim.bo[cbuf].modified
+		end
+		open_menu()
+		vim.cmd("normal b")
+		compose_run.run = real
+		eq(false, modified_when_run)
+		truthy(vim.tbl_contains(vim.fn.readfile(file), "# edited"))
+	end)
+
+	it("closes the menu before asking, so the prompt cannot end up under it", function()
+		local real_run, real_select = compose_run.run, vim.ui.select
+		compose_run.run = function() end
+		local menus_open
+		vim.ui.select = function(_, _, on_choice)
+			menus_open = #vim.tbl_filter(function(w)
+				return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == "dockyardmenu"
+			end, vim.api.nvim_list_wins())
+			on_choice("No")
+		end
+		local buf = open_menu()
+		goto_line(buf, "-v  remove volumes")
+		vim.cmd("normal x")
+		vim.cmd("normal d")
+		compose_run.run, vim.ui.select = real_run, real_select
+		eq(0, menus_open)
+	end)
+
 	it("runs down without asking when nothing destructive is ticked", function()
 		local calls = {}
 		local real_run, real_select = compose_run.run, vim.ui.select

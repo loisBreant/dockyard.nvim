@@ -343,7 +343,8 @@ options with a wrong type and unknown ones.
 Every command Dockyard runs is a job with its command line, status, duration
 and whole output. A notice shows the command and the tail of the output; it
 closes after a success (`jobs.notice.close_after`, in milliseconds, 0 keeps
-it) and stays after a failure: `q` closes it, `<CR>` opens the output.
+it) and stays after a failure: |:Dockyard-job| `last` opens the output; once
+the notice is focused, `<CR>` does too and `q` closes it.
 
 The Jobs view lists them, newest first, up to `jobs.history` finished ones,
 in memory only. Keys (`keymaps.jobs`):

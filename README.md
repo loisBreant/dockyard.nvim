@@ -188,8 +188,8 @@ chip in the file.
 ## Jobs
 
 Every command Dockyard runs (compose actions, `docker build`…) is a job. The notice that appears when it starts shows the
-exact command line and the tail of its output; it closes by itself after a success and stays after a failure (`q` closes
-it, `<CR>` opens the whole output). The **Jobs** tab of the dashboard (`:Dockyard jobs`) lists them, newest first:
+exact command line and the tail of its output; it closes by itself after a success and stays after a failure
+(`:Dockyard job last` opens the whole output; once the notice is focused, `<CR>` does too and `q` closes it). The **Jobs** tab of the dashboard (`:Dockyard jobs`) lists them, newest first:
 
 | Key | Action |
 |---|---|

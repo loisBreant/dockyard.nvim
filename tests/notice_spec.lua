@@ -34,7 +34,7 @@ describe("job notice", function()
 		eq(" $ docker compose up -d api", got[1])
 		eq(" line 4", got[2])
 		eq(" line 8", got[6])
-		eq(" ✖ Failed (exit 2) · <CR> full output · q close", got[7])
+		eq(" ✖ Failed (exit 2) · :Dockyard job last · q close", got[7])
 	end)
 
 	it("stays open for a failure and closes after a success", function()
