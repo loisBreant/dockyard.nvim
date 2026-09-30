@@ -12,6 +12,12 @@
   (`<CR>`), run it again (`r`), cancel it (`x`) or copy it (`y`). `:Dockyard jobs`, `:Dockyard job [id|last]`,
   `:Dockyard rerun [id|last]`
 - `[profile]` chips next to the services that have `profiles:`
+- Images, Networks, Volumes and Jobs show only the project Neovim works on, like Containers, when it has a compose file
+  (`display.project_scope`); `P` shows everything again, in every view at once. Networks and volumes are matched through
+  the compose project label, images when built for the project or used by one of its containers, jobs by the directory
+  they ran in
+- `F` filters and `C` clears the filter in those four views (`keymaps.<view>.filter`, `clear_filter`,
+  `toggle_project_scope`)
 - Options `jobs.history`, `jobs.notice.close_after`, `compose.defaults.*` and `keymaps.jobs.*`, and `:checkhealth` checks the
   preferences file
 
@@ -21,6 +27,7 @@
   (`:Dockyard job last` opens the whole output; with the notice focused, `<CR>` does too and `q` closes it)
 - `-v` and `--rmi` are never remembered, and `down` asks before removing volumes or images
 - The Jobs view is added to the default `display.views`
+- Images: `prune` moved from `P` to `X` (`keymaps.images.prune`), `P` is the project scope as in the other views
 
 ## 0.4.2
 

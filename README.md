@@ -13,12 +13,12 @@ Interactive Docker dashboard directly in your editor. It lets you view and manag
 > - **Compose & Dockerfile actions**: clickable `▶ Run` / `■ Stop` / `≡ Logs` / `Shell` / `⟳ Build` / `↗ :port` buttons
 >   next to every compose service and `⟳ Build` / `▶ Build & Run` on a Dockerfile's `FROM`, like VSCode
 > - **Container file browser**: search by name or content, edit, copy/move, download and upload files
-> - **Project scope** (`P`): only the containers of the project Neovim is working on, on by default in compose projects
+> - **Project scope** (`P`): only the containers, images, networks, volumes and jobs of the project Neovim is working on, on by default in compose projects
 > - **Container picker**: `:Telescope dockyard` / `:Dockyard pick` to reach logs, a shell or files without the dashboard
 > - **Compose options**: profiles, `--build`, `--pull`, `down -v`… from a menu, remembered per project
 > - **Jobs view**: every command Dockyard runs, with its exact command line and whole output, replayable
 > - **Open ports** in the browser from compose files or the dashboard (`o`)
-> - **Container filter** (`F` / `C`), open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
+> - **Filter** (`F` / `C`) in every view, open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
 >   ANSI colors in logs, from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim)
 
 > [!CAUTION]
@@ -53,7 +53,7 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - [x] Stream and inspect logs
 - [x] Run Docker build commands from Dockyard
 - [x] Filter containers by name, status, image, ports or compose project
-- [x] Show only the containers of the current project
+- [x] Show only the containers, images, networks, volumes and jobs of the current project
 - [x] Run, stop, restart, build services and open their logs, a shell or their ports straight from compose files
 - [x] Build and run a Dockerfile from its `FROM` line
 - [x] Choose compose profiles and flags (`--build`, `--pull`, `down -v`…) from a menu, remembered per project

@@ -147,7 +147,10 @@ Containers view:
   `F`       filter               `C`       clear the filter
   `P`       project scope on / off (|dockyard-scope|)
 
-Images view: `d` remove, `P` prune. Networks and volumes views: `d` remove.
+Images view: `d` remove, `X` prune. Networks and volumes views: `d` remove.
+Images, networks, volumes and jobs views also have `F` filter, `C` clear the
+filter and `P` project scope on / off, as the containers view
+(|dockyard-scope|).
 Jobs view: `<CR>` `K` open the output, `r` run again, `x` cancel, `y` copy
 the command, `D` forget the finished jobs (|dockyard-jobs|).
 
@@ -156,10 +159,21 @@ Every key can be changed or disabled in `keymaps` (|dockyard-config|).
 ==============================================================================
 6. PROJECT SCOPE AND FILTER                                   *dockyard-scope*
 
-`P` shows only the containers of the project Neovim works on. The project is
-the git root of Neovim's working directory, or the directory itself. A
-container belongs to it when its Docker Compose project was started from
-inside it, or from a parent directory (Neovim opened in a subdirectory).
+`P` shows only what belongs to the project Neovim works on, in every view at
+once. The project is the git root of Neovim's working directory, or the
+directory itself.
+
+  Containers  started by a Docker Compose project from inside it, or from a
+              parent directory (Neovim opened in a subdirectory)
+  Networks    labelled with a compose project of the scope
+  Volumes     same; anonymous volumes have no project and are hidden
+  Images      built for a compose project of the scope, or used by one of its
+              containers
+  Jobs        run in a directory inside the project
+
+The compose projects of the scope are the ones of those containers plus the
+one of the compose file in the project root (its `name:`, else the directory
+name), so the networks and volumes of a project without containers show up.
 Containers started with a plain `docker run` have no project.
 
 With `display.project_scope = "auto"` (the default) the dashboard opens in
@@ -167,8 +181,11 @@ this mode when the project root has a compose file. `true` and `false` force
 a mode. The picker (|dockyard-picker|) follows the same scope.
 
                                                              *dockyard-filter*
-`F` asks for a text and keeps the containers whose name, image, status,
-ports or compose project contain it, ignoring case. `C` clears it. Scope and
+`F` asks for a text and keeps the rows that contain it, ignoring case, in the
+current view: containers (name, image, status, ports, compose project), images
+(repository, tag, id), networks (name, driver, id), volumes (name, driver),
+jobs (title, status, directory, command). `C` clears it. The keys are
+`keymaps.<view>.filter`, `clear_filter` and `toggle_project_scope`. Scope and
 filter combine; the header shows both with their counts.
 
 ==============================================================================
@@ -316,7 +333,7 @@ only merges them over these defaults: >lua
         open_port = "o", filter = "F", clear_filter = "C",
         toggle_project_scope = "P",
       },
-      images = { remove = "d", prune = "P" },
+      images = { remove = "d", prune = "X" },
       networks = { remove = "d" },
       volumes = { remove = "d" },
       jobs = {
@@ -332,6 +349,8 @@ only merges them over these defaults: >lua
     },
   })
 <
+The images, networks, volumes and jobs groups also take filter = "F",
+clear_filter = "C" and toggle_project_scope = "P".
 A keymap set to `false` is disabled; a list adds aliases.
 `loglens.containers` and `loglens.default_highlights` configure log sources
 and highlight rules; see the README for their format. |:checkhealth| reports
