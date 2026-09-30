@@ -188,7 +188,7 @@ function M.clear_filter()
 end
 
 function M.toggle_project_scope()
-	view_state.project_scope = not require("dockyard.ui.views.containers.scope").enabled()
+	require("dockyard.scope").toggle()
 	renderer.render()
 	if is_containers_view_active() then
 		navigation.first()

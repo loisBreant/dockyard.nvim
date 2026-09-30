@@ -128,7 +128,7 @@ function M.list(cb)
 		if not res.ok then
 			return notify("could not list containers: " .. tostring(res.error), "error")
 		end
-		local items = require("dockyard.ui.views.containers.scope").apply(res.data or {})
+		local items = require("dockyard.scope").apply_containers(res.data or {})
 		table.sort(items, function(a, b)
 			if (a.status == "running") ~= (b.status == "running") then
 				return a.status == "running"

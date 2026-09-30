@@ -346,7 +346,7 @@ local function draw()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local scope = require("dockyard.ui.views.containers.scope")
+	local scope = require("dockyard.scope")
 	local all_items = state.containers.get_items() or {}
 	local raw_items = scope.apply(all_items)
 	local items = filter_items(raw_items)
