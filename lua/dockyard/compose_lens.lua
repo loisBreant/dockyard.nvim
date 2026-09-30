@@ -1,8 +1,7 @@
 -- Run / Stop / Logs / ... buttons next to the services of compose files.
 
 local context = require("dockyard.commands.context")
-local builder = require("dockyard.commands.builder")
-local executor = require("dockyard.commands.executor")
+local compose_run = require("dockyard.commands.compose_run")
 local lens = require("dockyard.lens")
 
 local M = {}
@@ -18,15 +17,8 @@ local group = vim.api.nvim_create_augroup("DockyardComposeLens", { clear = true 
 ---@type table<integer, table<string, DockyardServiceStatus>> buf -> service -> status
 local statuses = {}
 
-local function compose_base()
-	if vim.fn.executable("docker") == 1 then
-		return { "docker", "compose" }
-	end
-	return { "docker-compose" }
-end
-
 local function compose_cmd(file, ...)
-	local args = vim.list_extend(compose_base(), { "-f", file })
+	local args = vim.list_extend(require("dockyard.commands.compose").base_cmd(), { "-f", file })
 	return vim.list_extend(args, { ... })
 end
 
@@ -178,32 +170,24 @@ end
 ---@param port integer|nil for "open"; defaults to the first published port
 function M.run_action(buf, action, service, port)
 	local file = vim.api.nvim_buf_get_name(buf)
-	local dir = vim.fn.fnamemodify(file, ":h")
 	if vim.bo[buf].modified then
 		vim.api.nvim_buf_call(buf, function()
 			vim.cmd("silent! write")
 		end)
 	end
 
-	local on_exit = function()
+	local function on_exit()
 		refresh(buf)
 	end
-	local label = service or "all services"
-	local function compose(verb)
-		executor.run(compose_cmd(file, verb, service), { cwd = dir, title = "compose " .. verb .. " " .. label, on_exit = on_exit })
-	end
+	local run_opts = { on_exit = on_exit }
+	local extra = { services = service and { service } or {} }
 
 	if action == "run" then
-		local args, err = builder.run_cmd({ type = "compose", file = file, dir = dir }, service)
-		if not args then
-			vim.notify("Dockyard: " .. tostring(err), vim.log.levels.ERROR)
-			return
-		end
-		executor.run(args, { cwd = dir, title = "compose up " .. label, on_exit = on_exit })
+		compose_run.run(file, "up", extra, run_opts)
 	elseif action == "stop" or action == "restart" or action == "build" then
-		compose(action)
+		compose_run.run(file, action, extra, run_opts)
 	elseif action == "down" then
-		executor.run(compose_cmd(file, "down"), { cwd = dir, title = "compose down", on_exit = on_exit })
+		compose_run.run(file, "down", nil, run_opts)
 	elseif action == "open" then
 		local s = (statuses[buf] or {})[service]
 		port = port or (s and s.ports and s.ports[1])

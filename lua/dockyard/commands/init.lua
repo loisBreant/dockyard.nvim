@@ -3,6 +3,7 @@ local M = {}
 local context = require("dockyard.commands.context")
 local builder = require("dockyard.commands.builder")
 local executor = require("dockyard.commands.executor")
+local compose_run = require("dockyard.commands.compose_run")
 
 local function save_if_modified()
 	if vim.bo.modified then
@@ -38,25 +39,13 @@ function M.run_visual(line1, line2)
 		return
 	end
 
-	local ctx = {
-		type = "compose",
-		file = file,
-		dir = vim.fn.fnamemodify(file, ":h"),
-	}
-
 	local services = context.services_in_range(line1, line2)
 	if #services == 0 then
 		vim.notify("Dockyard: no services found in selection", vim.log.levels.WARN)
 		return
 	end
 
-	local args, err = builder.run_cmd(ctx, services)
-	if not args then
-		vim.notify("Dockyard: " .. tostring(err), vim.log.levels.ERROR)
-		return
-	end
-
-	executor.run(args, { cwd = ctx.dir, title = "compose up " .. table.concat(services, ", ") })
+	compose_run.run(file, "up", { services = services })
 end
 
 function M.run_all()
@@ -68,13 +57,7 @@ function M.run_all()
 		return
 	end
 
-	local args, err = builder.run_all_cmd(ctx)
-	if not args then
-		vim.notify("Dockyard: " .. tostring(err), vim.log.levels.ERROR)
-		return
-	end
-
-	executor.run(args, { cwd = ctx.dir, title = "compose up" })
+	compose_run.run(ctx.file, "up")
 end
 
 return M
