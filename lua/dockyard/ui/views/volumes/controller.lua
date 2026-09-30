@@ -22,7 +22,7 @@ end
 
 ---@param on_done fun()|nil
 ---@param opts { force_update?: boolean }|nil
-function M.update(on_done, opts)
+local function update_now(on_done, opts)
 	local items = data_state.volumes.get_items()
 	local has_data = type(items) == "table" and #items > 0
 	if (opts and opts.force_update) or not has_data then
@@ -49,6 +49,24 @@ function M.update(on_done, opts)
 		on_done()
 	end
 end
+
+---@param on_done fun()|nil
+---@param opts { force_update?: boolean }|nil
+function M.update(on_done, opts)
+	-- the scope needs the containers to know the project's names
+	require("dockyard.scope").ensure_containers(function()
+		update_now(on_done, opts)
+	end)
+end
+
+M.filter = require("dockyard.ui.components.view_filter").controller({
+	view = "volumes",
+	label = "volumes",
+	state = require("dockyard.ui.views.volumes.state"),
+	render = function()
+		renderer.render()
+	end,
+})
 
 ---@param node { kind: string, item: Volume }|nil
 function M.open_details(node)

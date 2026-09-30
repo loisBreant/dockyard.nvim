@@ -97,4 +97,30 @@ describe("networks view selection", function()
 end)
 
 
+describe("volumes view selection", function()
+	local renderer = require("dockyard.ui.views.volumes.renderer")
+	local volumes = {
+		{ name = "app_data", driver = "local", labels = "com.docker.compose.project=app,com.docker.compose.volume=data" },
+		{ name = "0f35a03bff05", driver = "local", labels = "com.docker.volume.anonymous=" },
+		{ name = "other_data", driver = "local", labels = "com.docker.compose.project=other" },
+	}
+
+	it("shows the named volumes of the project and hides the anonymous ones", function()
+		scope_on(true)
+		eq({ "app_data" }, names((renderer.select(volumes, containers, nil)), "name"))
+	end)
+
+	it("filters by name or driver, and shows everything when the scope is off", function()
+		scope_on(false)
+		eq(3, #renderer.select(volumes, containers, nil))
+		eq({ "other_data" }, names((renderer.select(volumes, containers, "OTHER")), "name"))
+		eq(3, #renderer.select(volumes, containers, "local"))
+	end)
+
+	it("has a filter controller", function()
+		eq("function", type(require("dockyard.ui.views.volumes.controller").filter.prompt_filter))
+	end)
+end)
+
+
 scope_on(config.defaults.display.project_scope)
