@@ -160,6 +160,7 @@ local function open_with(mode, win_config_fn, mods)
 		{ name = "DockyardBuild", desc = "Build Docker image from current Dockerfile" },
 		{ name = "DockyardRun", desc = "Run Docker Compose services" },
 		{ name = "Dockyard jobs", desc = "Commands Dockyard ran, with their output" },
+		{ name = "Dockyard compose", desc = "Compose options: profiles, --build, down -v…" },
 		{ name = "DockyardFiles", desc = "Browse a container's filesystem" },
 	}, { buffer = state.buf_id, index = 999 })
 

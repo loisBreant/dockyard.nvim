@@ -57,7 +57,7 @@ describe("build_lines", function()
 		eq("▶ Run  ⟳ Build", text(lines[2]))
 		eq({ "run", "build" }, actions(lines[2]))
 		eq("▶ Run", text(lines[4]))
-		eq("▶▶ Run all  ⟳ Build all", text(lines[1]))
+		eq("▶▶ Run all  ⟳ Build all  ⚙ Options", text(lines[1]))
 	end)
 
 	it("shows the state, actions and ports of running services", function()
@@ -69,7 +69,7 @@ describe("build_lines", function()
 		eq({ "restart", "stop", "logs", "shell", "open" }, actions(lines[4]))
 		eq(5432, lines[4].buttons[5].data.port)
 		eq("○ exited  ▶ Run", text(lines[6]))
-		eq("▶▶ Run all  ■ Stop all  ⟳ Build all  ▼ Down", text(lines[1]))
+		eq("▶▶ Run all  ■ Stop all  ⟳ Build all  ▼ Down  ⚙ Options", text(lines[1]))
 	end)
 
 	it("colours the health state", function()
@@ -77,6 +77,26 @@ describe("build_lines", function()
 			db = { state = "running", name = "x", health = "unhealthy", ports = {} },
 		})
 		eq({ "● unhealthy", "DockyardStopped" }, lines[4].chunks[2])
+	end)
+
+	it("shows what the project options change next to the options button", function()
+		local lines = compose_lens.build_lines(buf, {}, "debug +build")
+		eq("▶▶ Run all  ⟳ Build all  ⚙ Options · debug +build", text(lines[1]))
+		eq("options", lines[1].buttons[#lines[1].buttons].data.action)
+	end)
+
+	it("tags the services that have profiles", function()
+		local with_profiles = buffer({
+			"services:",
+			"  api:",
+			"    image: x",
+			"  adminer:",
+			"    image: adminer",
+			"    profiles: [debug, tools]",
+		})
+		local lines = compose_lens.build_lines(with_profiles, {})
+		eq("▶ Run", text(lines[2]))
+		eq("[debug,tools]  ▶ Run", text(lines[4]))
 	end)
 
 	it("has no lens without services", function()

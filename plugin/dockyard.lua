@@ -43,6 +43,7 @@ local plugs = {
 	pick = "pick",
 	build = "build",
 	run = "run",
+	compose = "compose",
 	jobs = "jobs",
 	["job-last"] = "job last",
 }

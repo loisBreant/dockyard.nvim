@@ -2,6 +2,8 @@
 
 local context = require("dockyard.commands.context")
 local compose_run = require("dockyard.commands.compose_run")
+local prefs = require("dockyard.commands.prefs")
+local menu_model = require("dockyard.ui.popups.compose_menu.model")
 local lens = require("dockyard.lens")
 
 local M = {}
@@ -74,8 +76,9 @@ end
 
 ---@param buf integer
 ---@param status table<string, DockyardServiceStatus>
+---@param summary? string what the project's options change, shown next to the options button
 ---@return table<integer, DockyardLensLine>
-function M.build_lines(buf, status)
+function M.build_lines(buf, status, summary)
 	local lines = {}
 	local block = context.compose_services(buf)
 	if not block.lnum or #block.services == 0 then
@@ -87,6 +90,9 @@ function M.build_lines(buf, status)
 		local s = status[service.name]
 		local line = lens.line()
 		local name = service.name
+		if #service.profiles > 0 then
+			line:add("[" .. table.concat(service.profiles, ",") .. "]", "DockyardLensMuted")
+		end
 		if s and s.state ~= "" then
 			any_created = true
 		end
@@ -126,14 +132,19 @@ function M.build_lines(buf, status)
 	if any_created then
 		top:add("▼ Down", "DockyardLensStop", { action = "down" })
 	end
+	local options = "⚙ Options" .. ((summary and summary ~= "") and (" · " .. summary) or "")
+	top:add(options, "DockyardLensMuted", { action = "options" })
 	lines[block.lnum] = top
 	return lines
 end
 
 local function render(buf)
-	if vim.api.nvim_buf_is_valid(buf) then
-		lens.render(buf, M.build_lines(buf, statuses[buf] or {}))
+	if not vim.api.nvim_buf_is_valid(buf) then
+		return
 	end
+	local file = vim.api.nvim_buf_get_name(buf)
+	local summary = file ~= "" and menu_model.summary(prefs.get(file)) or ""
+	lens.render(buf, M.build_lines(buf, statuses[buf] or {}, summary))
 end
 
 local refresh
@@ -165,7 +176,7 @@ function refresh(buf)
 end
 
 ---@param buf integer
----@param action string run|stop|restart|build|down|logs|shell|open
+---@param action string run|stop|restart|build|down|options|logs|shell|open
 ---@param service string|nil nil means every service
 ---@param port integer|nil for "open"; defaults to the first published port
 function M.run_action(buf, action, service, port)
@@ -188,6 +199,8 @@ function M.run_action(buf, action, service, port)
 		compose_run.run(file, action, extra, run_opts)
 	elseif action == "down" then
 		compose_run.run(file, "down", nil, run_opts)
+	elseif action == "options" then
+		require("dockyard.ui.popups.compose_menu").open(file, { on_exit = on_exit })
 	elseif action == "open" then
 		local s = (statuses[buf] or {})[service]
 		port = port or (s and s.ports and s.ports[1])
@@ -233,6 +246,13 @@ local function attach(buf)
 		buffer = buf,
 		callback = function()
 			refresh(buf)
+		end,
+	})
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		group = group,
+		buffer = buf,
+		callback = function()
+			require("dockyard.commands.profiles").invalidate(vim.api.nvim_buf_get_name(buf))
 		end,
 	})
 	vim.api.nvim_create_autocmd("BufWipeout", {

@@ -14,6 +14,7 @@ describe("plugin/dockyard.lua", function()
 			"dockyard-service-open",
 			"dockyard-jobs",
 			"dockyard-job-last",
+			"dockyard-compose",
 		}) do
 			truthy(vim.fn.maparg("<Plug>(" .. name .. ")", "n") ~= "", name)
 		end

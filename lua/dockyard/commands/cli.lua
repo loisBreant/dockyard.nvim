@@ -1,9 +1,10 @@
--- :Dockyard [strategy] | pick | files | logs | build | run | service | jobs | job | rerun
+-- :Dockyard [strategy] | pick | files | logs | build | run | service | compose | jobs | job | rerun
 
 local M = {}
 
 local STRATEGIES = { "current", "split", "vsplit", "tab", "float" }
 local SERVICE_ACTIONS = { "run", "stop", "restart", "build", "logs", "shell", "open" }
+local COMPOSE_ACTIONS = { "up", "down", "build", "pull", "stop", "restart" }
 local ALIASES = { edit = "current", vertical = "vsplit", horizontal = "split", panel = "float" }
 
 local function notify(msg, level)
@@ -66,6 +67,15 @@ local function service(action)
 		return notify("the cursor is not on a compose service", vim.log.levels.WARN)
 	end
 	require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, name)
+end
+
+local function compose_file()
+	local context = require("dockyard.commands.context")
+	local file = context.current_file()
+	if file and context.is_compose_file(file) then
+		return file
+	end
+	return context.find_compose_file(vim.fn.getcwd())
 end
 
 local function job_ids(lead)
@@ -143,6 +153,22 @@ M.subcommands = {
 		end,
 		complete = function(lead)
 			return starting_with(lead, SERVICE_ACTIONS)
+		end,
+	},
+	compose = {
+		run = function(args)
+			local action = args[1] or "up"
+			if not vim.tbl_contains(COMPOSE_ACTIONS, action) then
+				return notify("unknown compose action '" .. action .. "'", vim.log.levels.ERROR)
+			end
+			local file = compose_file()
+			if not file then
+				return notify("no compose file found", vim.log.levels.WARN)
+			end
+			require("dockyard.ui.popups.compose_menu").open(file, { action = action })
+		end,
+		complete = function(lead)
+			return starting_with(lead, COMPOSE_ACTIONS)
 		end,
 	},
 	jobs = {
