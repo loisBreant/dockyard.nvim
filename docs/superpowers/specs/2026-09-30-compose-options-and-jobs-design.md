@@ -129,7 +129,7 @@ titre, dossier. Tri du plus récent au plus ancien. Rafraîchie via `runner.subs
 la vue est active). Touches (`keymaps.jobs`) : `<CR>` détail, `r` rejouer, `x` annuler, `D` effacer les terminés,
 `y` copier la commande.
 
-**Buffer de détail** : buffer `dockyard://job/<id>` (`buftype=nofile`, `filetype=dockyardjob`), ouvert en split. En-tête
+**Buffer de détail** : buffer `dockyard-job://<id>` (nom distinct de `dockyard://`, réservé aux fichiers de conteneur ; `buftype=nofile`, `filetype=dockyardjob`), ouvert en split. En-tête
 `$ commande` et pied `✔/✖ exit N · durée`. Ajout en direct pendant l'exécution ; défilement automatique tant que le
 curseur est sur la dernière ligne. `q` ferme, `r` rejoue, `x` annule.
 
@@ -137,28 +137,38 @@ curseur est sur la dernière ligne. `q` ferme, `r` rejoue, `x` annule.
 (`debug · +build`). `▶ Run all`, `▶ Run`, `■ Stop`, `↻ Restart`, `⟳ Build`, `▼ Down` construisent leur commande via
 `compose.build` avec les préférences du projet.
 
-**Menu** (`ui/popups/compose_menu.lua`), ouvert par le bouton `⚙ Options`, `:Dockyard compose [action]` ou
+**Menu** (`ui/popups/compose_menu/{model,init}.lua`), ouvert par le bouton `⚙ Options`, `:Dockyard compose [action]` ou
 `<Plug>(dockyard-compose)` :
 
 ```
  Compose · docker-compose.yml
- ── Profils ───────────────────────────────
-  [x] debug   [ ] tools   [ ] e2e   [ ] tous (*)
- ── Enregistré pour ce projet ─────────────
-  [x] --force-recreate  [ ] --build  [ ] --pull always
-  [ ] --no-deps  [ ] --wait  [ ] --remove-orphans
- ── Cette exécution seulement ─────────────
-  [ ] -v (supprimer les volumes)  [ ] --rmi local  [ ] -V
- ── Cible ─────────────────────────────────
-  services : tous
+
+ Profiles
+   [x] debug
+   [ ] tools
+   [ ] all profiles (*)
+
+ Saved for this project
+   [x] --force-recreate
+   [ ] --build
+   [ ] --pull always
+   [ ] --no-deps
+   [ ] --wait
+   [ ] --remove-orphans
+
+ This run only
+   [ ] -v  remove volumes (down)
+   [ ] --rmi local  remove images (down)
+   [ ] -V  renew anonymous volumes (up)
+
  $ docker compose -f docker-compose.yml --profile debug up -d --force-recreate
- <Space> cocher · <CR> up · d down · b build · p pull · s stop · r restart · q fermer
+ <CR> up · d down · b build · p pull · s stop · r restart · <Space> toggle · q close
 ```
 
 - Le modèle (état → lignes, bascule d'une case, aperçu de la commande) est une fonction pure, testée ; la fenêtre ne fait
   que l'afficher.
-- Les cases « Enregistré » sont écrites dans `prefs` à chaque changement ; les cases « cette exécution » ne le sont pas.
-- Une commande contenant `-v` ou `--rmi` demande confirmation (`vim.ui.select` Oui/Non, Non par défaut) en nommant le
+- Les cases « Saved for this project » sont écrites dans `prefs` à chaque changement ; les cases « This run only » ne le sont pas.
+- Un `down` contenant `-v` ou `--rmi` demande confirmation (`vim.ui.select` Oui/Non, Non par défaut) en nommant le
   projet.
 - L'aperçu est la commande réellement lancée (même appel à `compose.build`).
 
