@@ -7,7 +7,14 @@ describe("plugin/dockyard.lua", function()
 	end)
 
 	it("defines the <Plug> mappings", function()
-		for _, name in ipairs({ "dockyard-open", "dockyard-pick", "dockyard-service-run", "dockyard-service-open" }) do
+		for _, name in ipairs({
+			"dockyard-open",
+			"dockyard-pick",
+			"dockyard-service-run",
+			"dockyard-service-open",
+			"dockyard-jobs",
+			"dockyard-job-last",
+		}) do
 			truthy(vim.fn.maparg("<Plug>(" .. name .. ")", "n") ~= "", name)
 		end
 	end)
@@ -72,6 +79,10 @@ describe("config", function()
 		local opts = vim.tbl_deep_extend("force", vim.deepcopy(config.defaults), { compose = { defaults = { pull = "always" } } })
 		eq({}, config.validate(opts))
 		eq({}, config.unknown_keys({ jobs = { history = 10 }, compose = { defaults = { build = true } }, keymaps = { jobs = { rerun = "R" } } }))
+	end)
+
+	it("has the Jobs view in the default views", function()
+		truthy(vim.tbl_contains(config.defaults.display.views, "jobs"))
 	end)
 
 	it("finds unknown options but not container log configs", function()

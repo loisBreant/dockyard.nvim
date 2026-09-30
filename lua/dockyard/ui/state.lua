@@ -4,7 +4,7 @@
 --- @field prev_win number|nil ID of the previously focused window before opening Dockyard, or nil if not set
 --- @field prev_buf number|nil Buffer shown in prev_win before Dockyard replaced it (for "current" mode)
 --- @field tab_id number|nil ID of Dockyard tab in full mode
---- @field current_view "containers"|"compose"|"images"|"networks"|"volumes" The currently active view
+--- @field current_view "containers"|"compose"|"images"|"networks"|"volumes"|"jobs" The currently active view
 --- @field line_map table A mapping of buffer line numbers to item IDs for the currents view
 --- @field mode "panel"|"full"|"current"|"split"|"vsplit"|"tab"|"float" The current display mode of the UI
 

@@ -33,6 +33,7 @@ local ICONS = {
 		images = "󰆼",
 		networks = "󰖩",
 		volumes = "󰋊",
+		jobs = "󰔟",
 		fallback = "•",
 	},
 	docker = DOCKER_ICON,

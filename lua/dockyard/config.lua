@@ -45,7 +45,7 @@
 --- @field containers? table<string, ContainerLogConfig> Per-container configurations
 --- @field default_highlights? LogHighlightRule[]        Fallback highlights for all containers (overrides built-in defaults)
 
---- @alias DockyardView "containers"|"compose"|"images"|"networks"|"volumes"
+--- @alias DockyardView "containers"|"compose"|"images"|"networks"|"volumes"|"jobs"
 
 --- @alias DockyardOpenStrategy "current"|"split"|"vsplit"|"tab"|"float"
 --- How :Dockyard opens when no explicit arg/modifier is given.
@@ -94,7 +94,7 @@ local M = {}
 ---@type DockyardConfig
 M.options = {
 	display = {
-		views = { "containers", "images", "networks", "volumes" },
+		views = { "containers", "images", "networks", "volumes", "jobs" },
 		open_strategy = "tab",
 		project_scope = "auto",
 	},

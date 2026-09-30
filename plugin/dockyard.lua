@@ -43,6 +43,8 @@ local plugs = {
 	pick = "pick",
 	build = "build",
 	run = "run",
+	jobs = "jobs",
+	["job-last"] = "job last",
 }
 for _, action in ipairs({ "run", "stop", "restart", "build", "logs", "shell", "open" }) do
 	plugs["service-" .. action] = "service " .. action

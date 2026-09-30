@@ -11,6 +11,7 @@ local view_modules = {
 	images = require("dockyard.ui.views.images.init"),
 	networks = require("dockyard.ui.views.networks.init"),
 	volumes = require("dockyard.ui.views.volumes.init"),
+	jobs = require("dockyard.ui.views.jobs.init"),
 }
 
 local win_config_by_mode = ui_utils.win_config_by_mode
@@ -158,6 +159,7 @@ local function open_with(mode, win_config_fn, mods)
 		{ name = "DockyardFloat", desc = "Open Dockyard floating UI" },
 		{ name = "DockyardBuild", desc = "Build Docker image from current Dockerfile" },
 		{ name = "DockyardRun", desc = "Run Docker Compose services" },
+		{ name = "Dockyard jobs", desc = "Commands Dockyard ran, with their output" },
 		{ name = "DockyardFiles", desc = "Browse a container's filesystem" },
 	}, { buffer = state.buf_id, index = 999 })
 
@@ -288,6 +290,28 @@ M.open_tab = function(mods)
 end
 
 M.open_float = M.open
+
+---Open the dashboard on `view`, or switch to it when it is already open.
+---@param view DockyardView
+M.open_view = function(view)
+	local views = config.options.display.views or {}
+	if not vim.tbl_contains(views, view) then
+		vim.notify("Dockyard: the '" .. view .. "' view is not in display.views", vim.log.levels.WARN)
+		return
+	end
+	if M.is_open() then
+		vim.api.nvim_set_current_win(state.win_id)
+		if state.current_view ~= view then
+			teardown_active_view()
+			state.current_view = view
+			setup_active_view()
+			update_active_view(nil, { force_update = true })
+		end
+		return
+	end
+	state.current_view = view
+	M.open_with_strategy(nil, nil)
+end
 
 --- Unified entry point for :Dockyard [strategy]. Mirrors oil.nvim / neo-tree
 --- convention while also honoring Vim's command modifiers (:vertical, :tab, etc.)

@@ -1,4 +1,4 @@
--- :Dockyard [strategy] | pick | files | logs | build | run | service
+-- :Dockyard [strategy] | pick | files | logs | build | run | service | jobs | job | rerun
 
 local M = {}
 
@@ -68,6 +68,24 @@ local function service(action)
 	require("dockyard.compose_lens").run_action(vim.api.nvim_get_current_buf(), action, name)
 end
 
+local function job_ids(lead)
+	local ids = vim.tbl_map(function(job)
+		return tostring(job.id)
+	end, require("dockyard.commands.runner").list())
+	table.insert(ids, 1, "last")
+	return starting_with(lead, ids)
+end
+
+-- "last" or nil is the most recent job
+local function find_job(arg)
+	local runner = require("dockyard.commands.runner")
+	local job = (arg == nil or arg == "last") and runner.last() or runner.get(tonumber(arg))
+	if not job then
+		notify(arg and ("no job '" .. arg .. "'") or "no job yet", vim.log.levels.WARN)
+	end
+	return job
+end
+
 ---@type table<string, { run: fun(args: string[], opts: table), complete?: fun(lead: string, args: string[]): string[] }>
 M.subcommands = {
 	open = {
@@ -125,6 +143,33 @@ M.subcommands = {
 		end,
 		complete = function(lead)
 			return starting_with(lead, SERVICE_ACTIONS)
+		end,
+	},
+	jobs = {
+		run = function()
+			require("dockyard.ui").open_view("jobs")
+		end,
+	},
+	job = {
+		run = function(args)
+			local job = find_job(args[1])
+			if job then
+				require("dockyard.ui.views.jobs.output").open(job.id)
+			end
+		end,
+		complete = function(lead, args)
+			return #args == 0 and job_ids(lead) or {}
+		end,
+	},
+	rerun = {
+		run = function(args)
+			local job = find_job(args[1])
+			if job then
+				require("dockyard.commands.runner").rerun(job.id)
+			end
+		end,
+		complete = function(lead, args)
+			return #args == 0 and job_ids(lead) or {}
 		end,
 	},
 }
