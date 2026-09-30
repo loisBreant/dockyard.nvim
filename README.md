@@ -15,6 +15,8 @@ Interactive Docker dashboard directly in your editor. It lets you view and manag
 > - **Container file browser**: search by name or content, edit, copy/move, download and upload files
 > - **Project scope** (`P`): only the containers of the project Neovim is working on, on by default in compose projects
 > - **Container picker**: `:Telescope dockyard` / `:Dockyard pick` to reach logs, a shell or files without the dashboard
+> - **Compose options**: profiles, `--build`, `--pull`, `down -v`… from a menu, remembered per project
+> - **Jobs view**: every command Dockyard runs, with its exact command line and whole output, replayable
 > - **Open ports** in the browser from compose files or the dashboard (`o`)
 > - **Container filter** (`F` / `C`), open strategies for `:Dockyard`, a native terminal when toggleterm is not installed and
 >   ANSI colors in logs, from [jugarpeupv/dockyard.nvim](https://github.com/jugarpeupv/dockyard.nvim)
@@ -54,6 +56,8 @@ Dockyard provides a single Docker workspace inside Neovim. You can inspect conta
 - [x] Show only the containers of the current project
 - [x] Run, stop, restart, build services and open their logs, a shell or their ports straight from compose files
 - [x] Build and run a Dockerfile from its `FROM` line
+- [x] Choose compose profiles and flags (`--build`, `--pull`, `down -v`…) from a menu, remembered per project
+- [x] Keep every command's output in a Jobs view, and run it again
 - [x] Pick a container from anywhere (Telescope or `vim.ui.select`)
 - [x] Navigate and search the file tree inside a container
 - [x] Copy, modify, and manage files inside a container
@@ -91,9 +95,9 @@ compose file or a Dockerfile, or edit a `dockyard://` buffer. To change options,
 ```lua
 require("dockyard").setup({
   display = {
-    -- Available views: "containers", "compose", "images", "networks", "volumes"
+    -- Available views: "containers", "compose", "images", "networks", "volumes", "jobs"
     -- "compose" shows containers grouped by Docker Compose project
-    views = { "containers", "images", "networks", "volumes" },
+    views = { "containers", "images", "networks", "volumes", "jobs" },
     -- how :Dockyard opens without an argument: "current" | "split" | "vsplit" | "tab" | "float"
     open_strategy = "tab",
     -- only the current project's containers (toggle with P): true | false |
@@ -102,6 +106,17 @@ require("dockyard").setup({
   },
   -- clickable actions in compose files and Dockerfiles
   compose_lens = { enabled = true },
+  -- flags of the projects that have no saved preferences (the menu saves the rest per project)
+  compose = {
+    defaults = {
+      force_recreate = true, build = false, pull = false, -- pull = false | "always" | "missing" | "never"
+      no_deps = false, wait = false, remove_orphans = false,
+    },
+  },
+  jobs = {
+    history = 50,                    -- finished jobs kept in the Jobs view
+    notice = { close_after = 3000 }, -- ms before the notice of a successful command closes (0 keeps it)
+  },
   loglens = {
     containers = {
       -- Override highlights only
@@ -135,6 +150,56 @@ require("dockyard").setup({
   },
 })
 ```
+
+## Compose options
+
+On the `services:` line of a compose file, `⚙ Options` (or `:Dockyard compose [action]`, or
+`<Plug>(dockyard-compose)`) opens a menu:
+
+```
+ Compose · docker-compose.yml
+
+ Profiles
+   [x] debug
+   [ ] tools
+   [ ] all profiles (*)
+
+ Saved for this project
+   [x] --force-recreate
+   [ ] --build
+   [ ] --pull always
+   ...
+
+ This run only
+   [ ] -v  remove volumes (down)
+   [ ] --rmi local  remove images (down)
+   [ ] -V  renew anonymous volumes (up)
+
+ $ docker compose -f docker-compose.yml --profile debug up -d --force-recreate
+```
+
+`<Space>` ticks a box, `j`/`k` move, `<CR>` runs `up` (or the action given to `:Dockyard compose`), `d` `b` `p` `s` `r` run
+`down`, `build`, `pull`, `stop`, `restart`, `q` closes. The boxes under *Saved for this project* and the profiles are
+remembered per project (`stdpath("data")/dockyard/projects.json`) and used by `▶ Run` and the other buttons, so `down`,
+`stop` and `restart` also see the active profiles. The *This run only* boxes are never saved, and `down` with `-v` or
+`--rmi` asks before it runs. The line under the boxes is the exact command. Services with `profiles:` get a `[profile]`
+chip in the file.
+
+## Jobs
+
+Every command Dockyard runs (compose actions, `docker build`…) is a job. The notice that appears when it starts shows the
+exact command line and the tail of its output; it closes by itself after a success and stays after a failure (`q` closes
+it, `<CR>` opens the whole output). The **Jobs** tab of the dashboard (`:Dockyard jobs`) lists them, newest first:
+
+| Key | Action |
+|---|---|
+| `<CR>` / `K` | open the whole output (`:Dockyard job [id\|last]`) |
+| `r` | run it again (`:Dockyard rerun [id\|last]`) |
+| `x` | cancel a running job |
+| `y` | copy the command line |
+| `D` | forget the finished jobs |
+
+Jobs live in memory for the session (`jobs.history` finished ones are kept).
 
 ## LogLens
 

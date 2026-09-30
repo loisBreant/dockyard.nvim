@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Compose options: a menu (`⚙ Options` on the `services:` line, `:Dockyard compose [action]`) with the profiles of the file,
+  `--build`, `--pull`, `--force-recreate`, `--no-deps`, `--wait`, `--remove-orphans` and, for one run only, `-v`, `--rmi`
+  and `-V`. Profiles and flags are remembered per project; `▶ Run` and the other buttons use them, and `down`, `stop` and
+  `restart` get the active profiles too
+- Jobs view: every command Dockyard runs is kept with its exact command line, status, duration and whole output; open it
+  (`<CR>`), run it again (`r`), cancel it (`x`) or copy it (`y`). `:Dockyard jobs`, `:Dockyard job [id|last]`,
+  `:Dockyard rerun [id|last]`
+- `[profile]` chips next to the services that have `profiles:`
+- Options `jobs.history`, `jobs.notice.close_after`, `compose.defaults.*` and `keymaps.jobs.*`, and `:checkhealth` checks the
+  preferences file
+
+### Changed
+
+- The notice of a command starts with the exact command line and no longer closes when the command fails (`q` closes it,
+  `<CR>` opens the whole output)
+- `-v` and `--rmi` are never remembered, and `down` asks before removing volumes or images
+- The Jobs view is added to the default `display.views`
+
 ## 0.4.2
 
 ### Fixed

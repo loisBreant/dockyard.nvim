@@ -17,7 +17,8 @@ CONTENTS                                                   *dockyard-contents*
  10. File browser ............................... |dockyard-files|
  11. LogLens .................................... |dockyard-loglens|
  12. Configuration .............................. |dockyard-config|
- 13. Highlights ................................. |dockyard-highlights|
+ 13. Jobs ....................................... |dockyard-jobs|
+ 14. Highlights ................................. |dockyard-highlights|
 
 ==============================================================================
 1. INTRODUCTION                                        *dockyard-introduction*
@@ -84,6 +85,22 @@ To change options, call `require("dockyard").setup({ ... })` (with lazy.nvim,
     `restart`, `build`, `logs`, `shell`, or `open` (its first published port
     in the browser).
 
+
+:Dockyard compose [{action}]                             *:Dockyard-compose*
+    Open the compose options menu (|dockyard-compose-options|) for the
+    current compose file, or the one in the working directory. {action} is
+    what <CR> runs: `up` (default), `down`, `build`, `pull`, `stop`,
+    `restart`.
+
+:Dockyard jobs                                              *:Dockyard-jobs*
+    Open the dashboard on the Jobs view (|dockyard-jobs|).
+
+:Dockyard job [{id}|last]                                    *:Dockyard-job*
+    Open the whole output of a job; `last` (default) is the most recent.
+
+:Dockyard rerun [{id}|last]                                *:Dockyard-rerun*
+    Run a job again.
+
                                                             *dockyard-aliases*
 The older commands still work: `:DockyardFloat` (`open float`),
 `:DockyardFull` (`open tab`), `:DockyardPick`, `:DockyardBuild`,
@@ -106,6 +123,9 @@ Dockyard creates no global mappings. Bind the <Plug> mappings you want
   *<Plug>(dockyard-service-logs)*
   *<Plug>(dockyard-service-shell)*
   *<Plug>(dockyard-service-open)*
+  *<Plug>(dockyard-compose)*          |:Dockyard-compose|
+  *<Plug>(dockyard-jobs)*             |:Dockyard-jobs|
+  *<Plug>(dockyard-job-last)*         `:Dockyard job last`
 
 ==============================================================================
 5. DASHBOARD                                              *dockyard-dashboard*
@@ -128,6 +148,8 @@ Containers view:
   `P`       project scope on / off (|dockyard-scope|)
 
 Images view: `d` remove, `P` prune. Networks and volumes views: `d` remove.
+Jobs view: `<CR>` `K` open the output, `r` run again, `x` cancel, `y` copy
+the command, `D` forget the finished jobs (|dockyard-jobs|).
 
 Every key can be changed or disabled in `keymaps` (|dockyard-config|).
 
@@ -160,7 +182,9 @@ and `services:` shows the project-wide ones:
     api:   ● healthy  ↻ Restart  ■ Stop  ≡ Logs   Shell  ↗ :8080  ⟳ Build
     db:   ○ exited  ▶ Run
 
-- `▶ Run` / `▶▶ Run all`   `docker compose up -d --force-recreate`
+- `▶ Run` / `▶▶ Run all`   `docker compose up -d`, with the options of the
+                           project (|dockyard-compose-options|); the default
+                           keeps `--force-recreate`
 - `■ Stop`, `↻ Restart`, `⟳ Build`, `▼ Down`   the matching compose command
 - `≡ Logs`                 LogLens on the service's container
 - ` Shell`                a shell in it
@@ -170,6 +194,27 @@ and `services:` shows the project-wide ones:
 follows the healthcheck and refreshes while a service is starting. Actions
 save the file first. Clicks elsewhere on the line behave as usual;
 |:Dockyard-service| offers the same actions from the keyboard.
+
+The `services:` line also has `⚙ Options`, with what differs from the
+defaults next to it (`debug +build`), and services that have `profiles:` show
+a `[profile]` chip.
+
+                                                   *dockyard-compose-options*
+`⚙ Options`, |:Dockyard-compose| or `<Plug>(dockyard-compose)` open a menu:
+
+  Profiles        the profiles of the file (asked to `docker compose config
+                  --profiles`, read from the file when that fails), and
+                  `all profiles (*)`
+  Saved           `--force-recreate` `--build` `--pull` `--no-deps` `--wait`
+                  `--remove-orphans`: remembered for the project
+  This run only   `-v` `--rmi` `-V`: never remembered
+
+`<Space>` ticks a box, `<CR>` runs the action, `d` `b` `p` `s` `r` run `down`,
+`build`, `pull`, `stop`, `restart`, `q` closes. The last line is the exact
+command. Profiles and saved flags live in `stdpath("data")` under
+`dockyard/projects.json`, one entry per compose file, and are used by every
+button, so `down`, `stop` and `restart` see the active profiles too. `down`
+with `-v` or `--rmi` asks first.
 
 `compose_lens.enabled = false` turns these actions off, and the Dockerfile
 ones too.
@@ -241,12 +286,23 @@ Options go through `require("dockyard").setup()`, which is optional and
 only merges them over these defaults: >lua
   require("dockyard").setup({
     display = {
-      -- "containers", "compose", "images", "networks", "volumes"
-      views = { "containers", "images", "networks", "volumes" },
+      -- "containers", "compose", "images", "networks", "volumes", "jobs"
+      views = { "containers", "images", "networks", "volumes", "jobs" },
       open_strategy = "tab",   -- current|split|vsplit|tab|float
       project_scope = "auto",  -- true | false | "auto"
     },
     compose_lens = { enabled = true },
+    compose = {
+      defaults = {             -- projects without saved preferences
+        force_recreate = true, build = false, no_deps = false,
+        wait = false, remove_orphans = false,
+        pull = false,          -- false | "always" | "missing" | "never"
+      },
+    },
+    jobs = {
+      history = 50,
+      notice = { close_after = 3000 },
+    },
     loglens = { containers = {} },
     keymaps = {
       ui = {
@@ -263,6 +319,10 @@ only merges them over these defaults: >lua
       images = { remove = "d", prune = "P" },
       networks = { remove = "d" },
       volumes = { remove = "d" },
+      jobs = {
+        open_output = "<CR>", rerun = "r", cancel = "x", clear = "D",
+        copy_command = "y",
+      },
       loglens = {
         close = "q", toggle_follow = "f", toggle_raw = "r",
         filter = "/", clear_filter = "c",
@@ -278,7 +338,27 @@ and highlight rules; see the README for their format. |:checkhealth| reports
 options with a wrong type and unknown ones.
 
 ==============================================================================
-13. HIGHLIGHTS                                           *dockyard-highlights*
+13. JOBS                                                       *dockyard-jobs*
+
+Every command Dockyard runs is a job with its command line, status, duration
+and whole output. A notice shows the command and the tail of the output; it
+closes after a success (`jobs.notice.close_after`, in milliseconds, 0 keeps
+it) and stays after a failure: `q` closes it, `<CR>` opens the output.
+
+The Jobs view lists them, newest first, up to `jobs.history` finished ones,
+in memory only. Keys (`keymaps.jobs`):
+
+  `<CR>` `K`   open the output     `r`   run again
+  `x`          cancel              `y`   copy the command line
+  `D`          forget the finished jobs
+
+The output buffer (`dockyard-job://{id}`) follows a running job while the
+cursor is on its last line; `q` closes it, `r` runs the job again, `x`
+cancels it. The `User DockyardJobChanged` autocommand fires on every change,
+with `data = { id = {job id} }`.
+
+==============================================================================
+14. HIGHLIGHTS                                           *dockyard-highlights*
 
 The action buttons use:
 
