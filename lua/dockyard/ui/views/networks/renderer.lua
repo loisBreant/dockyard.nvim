@@ -13,6 +13,8 @@ local ui_utils = require("dockyard.ui.utils")
 local highlights = require("dockyard.ui.highlights")
 local view_state = require("dockyard.ui.views.networks.state")
 local icons = require("dockyard.ui.icons")
+local scope = require("dockyard.scope")
+local scope_header = require("dockyard.ui.components.scope_header")
 
 local function current_width()
 	if ui_state.win_id ~= nil and vim.api.nvim_win_is_valid(ui_state.win_id) then
@@ -242,6 +244,19 @@ local function build_body(width, networks, containers)
 	return lines, line_map, spans
 end
 
+---The networks to show: the ones of the project (when the scope is on), then the ones matching the filter.
+---@param networks Network[]
+---@param containers Container[]
+---@param filter string|nil
+---@return Network[] shown, Network[] scoped
+function M.select(networks, containers, filter)
+	local scoped = scope.apply_networks(networks, containers)
+	local shown = vim.tbl_filter(function(network)
+		return scope_header.matches({ network.name or "", network.driver or "", network.id or "" }, filter)
+	end, scoped)
+	return shown, scoped
+end
+
 local function draw()
 	local buf = ui_state.buf_id
 	if buf == nil or not vim.api.nvim_buf_is_valid(buf) then
@@ -251,8 +266,9 @@ local function draw()
 	local lines = {}
 	local spans = {}
 	local width = current_width()
-	local networks = data_state.networks.get_items()
+	local all_networks = data_state.networks.get_items()
 	local containers = data_state.containers.get_items()
+	local networks, scoped = M.select(all_networks, containers, view_state.filter)
 
 	ui_utils.append_block(lines, spans, header.render(ui_state.mode, width))
 
@@ -267,6 +283,21 @@ local function draw()
 		})
 	)
 	table.insert(lines, "")
+
+	ui_utils.append_block(
+		lines,
+		spans,
+		scope_header.block({
+			scope_on = scope.enabled(),
+			root = scope.root(),
+			scoped = #scoped,
+			total = #all_networks,
+			filter = view_state.filter,
+			shown = #networks,
+			scope_key = scope_header.key_label("networks.toggle_project_scope", "P"),
+			clear_key = scope_header.key_label("networks.clear_filter", "C"),
+		})
+	)
 
 	local ok, body_lines, body_line_map, body_spans = pcall(build_body, width, networks, containers)
 	if not ok then

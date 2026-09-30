@@ -66,4 +66,35 @@ describe("images view keys", function()
 	end)
 end)
 
+describe("networks view selection", function()
+	local renderer = require("dockyard.ui.views.networks.renderer")
+	local networks = {
+		{ id = "n1", name = "app_default", driver = "bridge", labels = "com.docker.compose.project=app,com.docker.compose.network=default" },
+		{ id = "n2", name = "bridge", driver = "bridge", labels = "" },
+		{ id = "n3", name = "other_net", driver = "overlay", labels = "com.docker.compose.project=other" },
+	}
+
+	it("shows the networks of the project, and keeps them when it has no container", function()
+		scope_on(true)
+		eq({ "app_default" }, names((renderer.select(networks, containers, nil)), "name"))
+		eq({ "app_default" }, names((renderer.select(networks, {}, nil)), "name"))
+	end)
+
+	it("filters by name, driver or id", function()
+		scope_on(false)
+		eq({ "other_net" }, names((renderer.select(networks, containers, "overlay")), "name"))
+		eq({ "bridge" }, names((renderer.select(networks, containers, "n2")), "name"))
+		eq({ "app_default", "bridge", "other_net" }, names((renderer.select(networks, containers, "")), "name"))
+		scope_on(true)
+		local shown, scoped = renderer.select(networks, containers, "zzz")
+		eq(0, #shown)
+		eq(1, #scoped)
+	end)
+
+	it("has a filter controller", function()
+		eq("function", type(require("dockyard.ui.views.networks.controller").filter.prompt_filter))
+	end)
+end)
+
+
 scope_on(config.defaults.display.project_scope)

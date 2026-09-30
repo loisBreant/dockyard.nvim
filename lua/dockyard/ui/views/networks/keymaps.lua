@@ -5,6 +5,7 @@ local actions = require("dockyard.ui.actions.networks")
 local ui_state = require("dockyard.ui.state")
 local help = require("dockyard.ui.popups.help")
 local resolver = require("dockyard.core.keymaps")
+local view_filter = require("dockyard.ui.components.view_filter")
 
 local GROUP = "Networks"
 local INDEX = 40
@@ -93,6 +94,8 @@ function M.setup(buf, notify, hooks)
 		})
 	)
 
+	view_filter.push_items(items, "networks", controller.filter, 20)
+
 	help.register(GROUP, items, { buffer = buf, index = INDEX })
 end
 
@@ -103,6 +106,7 @@ function M.teardown(buf)
 	resolver.push(items, resolver.removal("networks.remove"))
 	resolver.push(items, resolver.removal("ui.open_details"))
 	resolver.push(items, resolver.removal("ui.open_panel"))
+	view_filter.push_removals(items, "networks")
 	help.remove(GROUP, items, { buffer = buf })
 end
 
