@@ -36,6 +36,25 @@ describe("is_dockerfile", function()
 	end)
 end)
 
+describe("compose_services profiles", function()
+	it("reads inline and block profiles of each service", function()
+		local block = context.compose_services(buffer({
+			"services:",
+			"  api:",
+			"    image: x",
+			"  adminer:",
+			"    profiles: [debug]",
+			"  seed:",
+			"    profiles:",
+			"      - tools",
+			"      - debug",
+		}))
+		eq({}, block.services[1].profiles)
+		eq({ "debug" }, block.services[2].profiles)
+		eq({ "tools", "debug" }, block.services[3].profiles)
+	end)
+end)
+
 describe("compose_services", function()
 	local lines = {
 		"name: demo", -- 1

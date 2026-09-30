@@ -57,6 +57,7 @@ end
 ---@field name string
 ---@field lnum integer 1-based line of the service key
 ---@field has_build boolean the service defines a `build:` section
+---@field profiles string[] its `profiles:`
 
 ---Locate the `services:` block and each service key in a compose buffer.
 ---Service keys are the first indentation level under `services:`, whatever its width.
@@ -83,12 +84,14 @@ function M.compose_services(buf)
 			if lead and (indent == nil or #lead == indent) then
 				indent = indent or #lead
 				child_indent = nil
-				table.insert(result.services, { name = name, lnum = i, has_build = false })
+				table.insert(result.services, { name = name, lnum = i, has_build = false, profiles = {} })
 			elseif lead and #lead > indent and #result.services > 0 then
 				-- keys of the service itself sit at its first child indentation
 				child_indent = child_indent or #lead
 				if #lead == child_indent and name == "build" then
 					result.services[#result.services].has_build = true
+				elseif #lead == child_indent and name == "profiles" then
+					result.services[#result.services].profiles = require("dockyard.commands.profiles").parse_at(lines, i)
 				end
 			end
 		end
