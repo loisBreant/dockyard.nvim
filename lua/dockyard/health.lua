@@ -73,6 +73,13 @@ function M.check()
 		vim.health.warn("neither `docker compose` nor `docker-compose` found — compose actions will fail")
 	end
 
+	local prefs_ok, prefs_problem = require("dockyard.commands.prefs").check()
+	if prefs_ok then
+		vim.health.ok("compose preferences file is readable")
+	else
+		vim.health.warn("compose preferences file (" .. require("dockyard.commands.prefs").path() .. "): " .. prefs_problem)
+	end
+
 	--- Configuration
 	vim.health.start("Configuration")
 	local config = require("dockyard.config")
